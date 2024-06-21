@@ -15,51 +15,25 @@ Copyright 2022 Roy Awesome's Open Engine (RAOE)
 */
 #pragma once
 
-#if RAOE_CORE_USE_LIBASSERT
-#include "assert.hpp"
-
-#define raoe_check_impl(...) ASSERT(__VA_ARGS__);
-
-#define raoe_check_always_impl(...) VERIFY(__VA_ARGS__);
-
-#else
-
-#ifndef raoe_check
-
-#define raoe_check_impl(...) assert(__VA_ARGS__);
-
-#define raoe_check_always_impl(...) assert(__VA_ARGS__);
-
-#endif
-
-#endif
-
-#ifdef NDEBUG
-#define raoe_check(...) ((void)0)
-#else
-
-#include "debug.hpp"
-
-#define raoe_check(...)                                                                                                \
-    raoe::debug::debug_break_if(!(!!(__VA_ARGS__)));                                                                   \
-    raoe_check_impl(__VA_ARGS__)
-
-#endif
-
-#define raoe_check_always(...)                                                                                         \
-    raoe::debug::debug_break_if((!!(__VA_ARGS__)));                                                                    \
-    raoe_check_always_impl(__VA_ARGS__)
-
 #ifdef RAOE_CORE_USE_SPDLOG
 #include "spdlog/spdlog.h"
+#else
+#include <iostream>
 #endif
 
+#include "debug.hpp"
 #include <cstdlib>
 #include <source_location>
 #include <string_view>
 #include <format>
 #include <type_traits>
 #include <concepts>
+
+#if _cpp_lib_stacktrace > 202011L
+#include <stacktrace>
+#endif
+
+
 
 namespace raoe
 {
@@ -102,6 +76,9 @@ namespace raoe
 #ifdef RAOE_CORE_USE_SPDLOG
         spdlog::critical("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
                          reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column());
+#else
+		std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
+			reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column()) << std::endl;
 #endif
         raoe::debug::debug_break();
         std::abort();
@@ -118,8 +95,73 @@ namespace raoe
         spdlog::critical("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
                          std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
                          reason.m_location.line(), reason.m_location.column());
+#else
+		std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
+			std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
+			reason.m_location.line(), reason.m_location.column()) << std::endl;
 #endif
         raoe::debug::debug_break();
         std::abort();
+    }
+
+	// Ensures that a condition is true, otherwise reports an error with the given reason and location.
+    inline void ensure(bool condition, _internal::panic_sv reason) noexcept
+	{
+		if (condition)
+		{
+			return;
+	    }
+
+#ifdef RAOE_CORE_USE_SPDLOG
+        spdlog::critical("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
+            reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column());
+#else
+        std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
+            reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column()) << std::endl;
+#endif
+        raoe::debug::debug_break();
+    }
+
+	template <typename... Args>
+	inline void ensure(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason, Args&&... args) noexcept
+        requires(sizeof...(Args) == 0)
+    {
+		if (condition)
+		{
+			return;
+		}
+#ifdef RAOE_CORE_USE_SPDLOG
+        spdlog::error("!!!ENSURE!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
+            std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
+            reason.m_location.line(), reason.m_location.column());
+#else
+        std::cerr << std::format("!!!ENSURE!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
+            std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
+            reason.m_location.line(), reason.m_location.column()) << std::endl;
+#endif
+        raoe::debug::debug_break();
+    }
+
+	// Abort Helper, catches std::terminates and prints the exception
+    // Use this in your main function with std::set_terminate()
+    [[noreturn]] inline void on_terminate()
+    {
+        try
+        {
+            std::rethrow_exception(std::current_exception());
+        }
+        catch (const std::exception& e)
+        {
+			panic("Uncaught exception: {}", e.what());
+        }
+        catch (...)
+        {
+			panic("Uncaught exception!");
+        }
+#if _cpp_lib_stacktrace > 202011L
+        panic("TERMINATE CALLED. Stacktrace:\{},", std::to_string(std::stacktrace::current()))
+#else
+		panic("TERMINATE CALLED.");
+#endif //_cpp_lib_stacktrace > 202011L
     }
 }
