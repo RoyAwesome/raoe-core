@@ -84,6 +84,17 @@ namespace raoe
         std::abort();
     }
 
+    // Panics if the condition is true, printing the reason and location to the console
+    // and breaking into the debugger if possible.
+    // This function can return.  If it panics it will exit the program with a non-zero exit code.
+    inline void check_if(bool condition, _internal::panic_sv reason) noexcept
+    {
+        if(!condition)
+        {
+            panic(reason);
+        }
+    }
+
     // Panics the program, printing the reason and location to the console
     // and breaking into the debugger if possible.
     // This function does not return, and will exit the program with a non-zero exit code.
@@ -102,6 +113,20 @@ namespace raoe
 #endif
         raoe::debug::debug_break();
         std::abort();
+    }
+
+    // Panics if the condition is true, printing the reason and location to the console
+    // and breaking into the debugger if possible.
+    // This function can return.  If it panics it will exit the program with a non-zero exit code.
+    template<typename... Args>
+    inline void check_if(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason,
+                         Args&&... args) noexcept
+        requires(sizeof...(Args) > 0)
+    {
+        if(!condition)
+        {
+            panic(reason, std::forward<Args>(args)...);
+        }
     }
 
 	// Ensures that a condition is true, otherwise reports an error with the given reason and location.
@@ -124,7 +149,7 @@ namespace raoe
 
 	template <typename... Args>
 	inline void ensure(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason, Args&&... args) noexcept
-        requires(sizeof...(Args) == 0)
+        requires(sizeof...(Args) > 0)
     {
 		if (condition)
 		{
