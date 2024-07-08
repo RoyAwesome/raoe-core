@@ -67,9 +67,9 @@ namespace raoe
     using unwrap_reference_t = typename unwrap_reference<T>::type;
 
     template <typename T>
-    std::span<uint8> as_bytes(const T& o)
+    const std::span<const std::byte> as_bytes(const T& o)
     {
-        return std::span<uint8>(std::addressof(o), sizeof(T));
+        return std::span<const std::byte>(std::addressof(o), sizeof(T));
     }
 
     template <typename T>
@@ -192,8 +192,9 @@ namespace raoe
         }
 
         template <class U>
-        auto operator<=(const not_null<U>& other) const noexcept(noexcept(std::less_equal<> {}(get(), other.get())))
-            -> decltype(std::less_equal<> {}(get(), other.get()))
+        auto operator<=(const not_null<U>& other) const
+            noexcept(noexcept(std::less_equal<> {}(get(), other.get()))) -> decltype(std::less_equal<> {}(get(),
+                                                                                                          other.get()))
         {
             return std::less_equal<> {}(get(), other.get());
         }
@@ -206,15 +207,15 @@ namespace raoe
         }
 
         template <class U>
-        auto operator<(const not_null<U>& other) const noexcept(noexcept(std::less<> {}(get(), other.get())))
-            -> decltype(std::less<> {}(get(), other.get()))
+        auto operator<(const not_null<U>& other) const
+            noexcept(noexcept(std::less<> {}(get(), other.get()))) -> decltype(std::less<> {}(get(), other.get()))
         {
             return std::less<> {}(get(), other.get());
         }
 
         template <class U>
-        auto operator>(const not_null<U>& other) const noexcept(noexcept(std::greater<> {}(get(), other.get())))
-            -> decltype(std::greater<> {}(get(), other.get()))
+        auto operator>(const not_null<U>& other) const
+            noexcept(noexcept(std::greater<> {}(get(), other.get()))) -> decltype(std::greater<> {}(get(), other.get()))
         {
             return std::greater<> {}(get(), other.get());
         }
