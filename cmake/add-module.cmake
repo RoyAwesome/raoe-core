@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.26)
 
 macro(raoe_add_module)
-    set(options STATIC SHARED MODULE HEADERONLY)
+    set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE)
     set(oneValueArgs NAME NAMESPACE CXX_STANDARD TARGET_VARIABLE)
-    set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES)
+    set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES COPY_DIRECTORY)
 
     cmake_parse_arguments(raoe_add_module "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     if(NOT raoe_add_module_CXX_STANDARD)
-        set(raoe_add_module_CXX_STANDARD 20)
+        if(NOT CMAKE_CXX_STANDARD)
+            set(raoe_add_module_CXX_STANDARD 20)
+        else()
+            set(raoe_add_module_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+        endif()
     endif()
 
     set(CMAKE_CXX_STANDARD ${raoe_add_module_CXX_STANDARD})
@@ -19,16 +23,18 @@ macro(raoe_add_module)
     endif()
 
     if(NOT raoe_add_module_NAMESPACE)
-        string(REPLACE "::" "-" MODULE_LIBRARY_NAME "raoe-module-${raoe_add_module_NAME}")
-    else()
-        string(REPLACE "::" "-" MODULE_LIBRARY_NAME "${raoe_add_module_NAMESPACE}-${raoe_add_module_NAME}")
+        set(raoe_add_module_NAMESPACE "raoe")
     endif()
+
+    string(REPLACE "::" "-" MODULE_LIBRARY_NAME "${raoe_add_module_NAMESPACE}-${raoe_add_module_NAME}")
 
     macro(raoe_add_module_configure_module)
         if(NOT raoe_add_module_HEADERONLY AND NOT raoe_add_module_MODULE)
-            target_include_directories(${PROJECT_NAME}
-                ${raoe_add_module_INCLUDE_DIRECTORIES}
-            )
+            if(raoe_add_module_INCLUDE_DIRECTORIES)
+                target_include_directories(${PROJECT_NAME}
+                    ${raoe_add_module_INCLUDE_DIRECTORIES}
+                )
+            endif()
         endif()
 
         if(NOT raoe_add_module_HEADERONLY)
@@ -44,13 +50,10 @@ macro(raoe_add_module)
             )
         endif()
 
-        if(NOT raoe_add_module_NAMESPACE)
-            set(raoe_add_module_alias "raoe::module::${raoe_add_module_NAME}${raoe_alias_sufix}")
-        else()
+        if(NOT raoe_add_module_EXECUTABLE)
             set(raoe_add_module_alias "${raoe_add_module_NAMESPACE}::${raoe_add_module_NAME}${raoe_alias_sufix}")
+            add_library("${raoe_add_module_alias}" ALIAS ${PROJECT_NAME})
         endif()
-
-        add_library("${raoe_add_module_alias}" ALIAS ${PROJECT_NAME})
 
         target_link_libraries(
             ${PROJECT_NAME}
@@ -71,9 +74,7 @@ macro(raoe_add_module)
 
         set(raoe_alias_sufix "")
         raoe_add_module_configure_module()
-    endif()
-
-    if(raoe_add_module_MODULE)
+    elseif(raoe_add_module_MODULE)
         set(raoe_alias_sufix "-MODULE")
         project("${MODULE_LIBRARY_NAME}${raoe_alias_sufix}" LANGUAGES CXX)
 
@@ -83,46 +84,58 @@ macro(raoe_add_module)
 
         add_library("${PROJECT_NAME}")
         target_sources("${PROJECT_NAME}"
-            PUBLIC
-            FILE_SET cxx_modules TYPE CXX_MODULES FILES
-            ${raoe_add_module_CPP_SOURCE_FILES}
+                PUBLIC
+                FILE_SET cxx_modules TYPE CXX_MODULES FILES
+                ${raoe_add_module_CPP_SOURCE_FILES}
         )
         raoe_add_module_configure_module()
-    endif()
 
-    if(raoe_add_module_STATIC)
-        if(raoe_add_module_HEADERONLY)
-            message(FATAL_ERROR "A module cannot be headeronly and static")
-        endif()
-
+    elseif(raoe_add_module_STATIC)
         set(raoe_alias_sufix "")
         project("${MODULE_LIBRARY_NAME}-static" LANGUAGES CXX)
 
         add_library("${PROJECT_NAME}"
-            STATIC
-            ${raoe_add_module_CPP_SOURCE_FILES}
+                STATIC
+                ${raoe_add_module_CPP_SOURCE_FILES}
         )
         raoe_add_module_configure_module()
-    endif()
-
-    if(raoe_add_module_SHARED)
-        if(raoe_add_module_HEADERONLY)
-            message(FATAL_ERROR "A module cannot be headeronly and static")
-        endif()
-
+    elseif(raoe_add_module_SHARED)
         message(FATAL_ERROR "Shared modules are not supported yet")
+    elseif(raoe_add_module_EXECUTABLE)
+        set(raoe_alias_sufix "")
+        project("${MODULE_LIBRARY_NAME}-exe" LANGUAGES CXX)
+        add_executable(${PROJECT_NAME}
+            ${raoe_add_module_CPP_SOURCE_FILES}
+        )
+
+        raoe_add_module_configure_module()
+    elseif()
+        message(FATAL_ERROR "raoe_add_module called without a valid module mode (must be STATIC, SHARED, MODULE, HEADERONLY, EXECUTABLE)")
     endif()
 
     if(DEFINED raoe_add_module_TARGET_VARIABLE)
         set(${raoe_add_module_TARGET_VARIABLE} ${PROJECT_NAME})
     endif()
 
+    # if this module wants to copy out a directory post build, set up those commands here
+    if(DEFINED raoe_add_module_COPY_DIRECTORY)
+        foreach(raoe_add_module_ITEM IN ITEMS ${raoe_add_module_COPY_DIRECTORY})
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -e copy_directory
+                ${CMAKE_SOURCE_DIR}/${raoe_add_module_ITEM}
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>${raoe_add_module_ITEM}
+            )
+        endforeach()
+    endif()
+
     # if this module has a third_party directory, include it now
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt" AND NOT INCLUDED_THIRD_PARTY_IN_THIS_FILE)
+        set(INCLUDED_THIRD_PARTY_IN_THIS_FILE TRUE)
         add_subdirectory("third_party")
     endif()
 
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt" AND NOT INCLUDED_TEST_IN_THIS_FILE)
+        set(INCLUDED_TEST_IN_THIS_FILE TRUE)
         add_subdirectory("test")
     endif()
 endmacro()
@@ -138,32 +151,22 @@ macro(raoe_add_test)
         message(FATAL_ERROR "This module must have a name")
     endif()
 
-    set(CMAKE_CXX_STANDARD 23) # turn on the dynamic depends for ninja
-
-    # set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP 1)
-    # set(CMAKE_EXPERIMENTAL_CXX_MODULE_CMAKE_API "2182bf5c-ef0d-489a-91da-49dbc3090d2a")
-    project("raoe-test-${raoe_add_test_NAME}" CXX)
-
-    add_executable(${PROJECT_NAME}
-        ${raoe_add_test_CPP_SOURCE_FILES}
-    )
-
-    enable_testing()
-
-    target_compile_definitions(${PROJECT_NAME}
-        PRIVATE
-        SEQUENTIAL_PROCESSING=0
-        ${raoe_add_test_COMPILE_DEFINITIONS}
-    )
-
     CPMAddPackage("gh:catchorg/Catch2@3.3.2")
-    target_link_libraries(${PROJECT_NAME}
-        PUBLIC
-        Catch2::Catch2WithMain
+
+    raoe_add_module(
+        EXECUTABLE
+        NAME ${raoe_add_test_NAME}
+        NAMESPACE "raoe::test"
+        TARGET_VARIABLE ${TARGET_VARIABLE}
+        CPP_SOURCE_FILES
+            ${raoe_add_test_CPP_SOURCE_FILES}
+        INCLUDE_DIRECTORIES
+            ${raoe_add_test_INCLUDE_DIRECTORIES}
+        COMPILE_DEFINITIONS
+            ${raoe_add_test_COMPILE_DEFINITIONS}
+        DEPENDENCIES
+            PUBLIC
+            Catch2::Catch2WithMain
         ${raoe_add_test_DEPENDENCIES}
     )
-
-    if(DEFINED raoe_add_test_TARGET_VARIABLE)
-        set(${raoe_add_test_TARGET_VARIABLE} ${PROJECT_NAME})
-    endif()
 endmacro()

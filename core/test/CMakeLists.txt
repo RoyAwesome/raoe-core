@@ -5,6 +5,7 @@ raoe_add_test(
     CPP_SOURCE_FILES
         "uuid_test.cpp"
         "tag_test.cpp"
+        "stream_test.cpp"
     DEPENDENCIES
         raoe::core
 )

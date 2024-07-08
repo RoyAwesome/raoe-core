@@ -109,7 +109,7 @@ namespace raoe
             return *this;
         }
 
-        constexpr [[nodiscard]] std::string_view prefix() const noexcept
+        [[nodiscard]] constexpr std::string_view prefix() const noexcept
         {
             auto raw = raw_prefix();
             if(m_hash_pos == std::string::npos)
@@ -120,7 +120,7 @@ namespace raoe
             return raw.substr(0, m_hash_pos);
         }
 
-        constexpr [[nodiscard]] std::string_view type() const noexcept
+        [[nodiscard]] constexpr std::string_view type() const noexcept
         {
             using namespace std::literals::string_view_literals;
             auto raw = raw_prefix();
@@ -131,7 +131,7 @@ namespace raoe
             return raw.substr(m_hash_pos + 1);
         }
 
-        constexpr [[nodiscard]] std::string_view identifier() const noexcept
+        [[nodiscard]] constexpr std::string_view identifier() const noexcept
         {
             using namespace std::literals::string_view_literals;
             if(m_colon_pos == std::string::npos || m_colon_pos == m_tag.length())
@@ -159,13 +159,13 @@ namespace raoe
             return prefix() == other.prefix() && identifier() == other.identifier();
         }
 
-        constexpr static [[nodiscard]] std::string_view default_prefix() noexcept
+        [[nodiscard]] constexpr static std::string_view default_prefix() noexcept
         {
             using namespace std::literals::string_view_literals;
             return "raoe"sv;
         }
 
-        constexpr [[nodiscard]] const char* c_str() const noexcept { return m_tag.c_str(); }
+        [[nodiscard]] constexpr const char* c_str() const noexcept { return m_tag.c_str(); }
 
       private:
         constexpr std::string_view raw_prefix() const noexcept

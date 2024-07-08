@@ -243,54 +243,51 @@ namespace raoe
     }
 }
 
-namespace std
+template <>
+struct std::hash<raoe::uuid>
 {
-    template <>
-    struct hash<raoe::uuid>
+    [[nodiscard]] std::size_t operator()(raoe::uuid const& id) const
     {
-        [[nodiscard]] std::size_t operator()(raoe::uuid const& id) const
+        uint64 l = static_cast<uint64>(id.m_bytes[0]) << 56 | static_cast<uint64>(id.m_bytes[1]) << 48 |
+                   static_cast<uint64>(id.m_bytes[2]) << 40 | static_cast<uint64>(id.m_bytes[3]) << 32 |
+                   static_cast<uint64>(id.m_bytes[4]) << 24 | static_cast<uint64>(id.m_bytes[5]) << 16 |
+                   static_cast<uint64>(id.m_bytes[6]) << 8 | static_cast<uint64>(id.m_bytes[7]);
+
+        uint64 h = static_cast<uint64>(id.m_bytes[8]) << 56 | static_cast<uint64>(id.m_bytes[9]) << 48 |
+                   static_cast<uint64>(id.m_bytes[10]) << 40 | static_cast<uint64>(id.m_bytes[11]) << 32 |
+                   static_cast<uint64>(id.m_bytes[12]) << 24 | static_cast<uint64>(id.m_bytes[13]) << 16 |
+                   static_cast<uint64>(id.m_bytes[14]) << 8 | static_cast<uint64>(id.m_bytes[15]);
+
+        if constexpr(sizeof(std::size_t) > 4)
         {
-            uint64 l = static_cast<uint64>(id.m_bytes[0]) << 56 | static_cast<uint64>(id.m_bytes[1]) << 48 |
-                       static_cast<uint64>(id.m_bytes[2]) << 40 | static_cast<uint64>(id.m_bytes[3]) << 32 |
-                       static_cast<uint64>(id.m_bytes[4]) << 24 | static_cast<uint64>(id.m_bytes[5]) << 16 |
-                       static_cast<uint64>(id.m_bytes[6]) << 8 | static_cast<uint64>(id.m_bytes[7]);
-
-            uint64 h = static_cast<uint64>(id.m_bytes[8]) << 56 | static_cast<uint64>(id.m_bytes[9]) << 48 |
-                       static_cast<uint64>(id.m_bytes[10]) << 40 | static_cast<uint64>(id.m_bytes[11]) << 32 |
-                       static_cast<uint64>(id.m_bytes[12]) << 24 | static_cast<uint64>(id.m_bytes[13]) << 16 |
-                       static_cast<uint64>(id.m_bytes[14]) << 8 | static_cast<uint64>(id.m_bytes[15]);
-
-            if constexpr(sizeof(std::size_t) > 4)
-            {
-                return std::size_t(l ^ h);
-            }
-            else
-            {
-                uint64 hash = l ^ h;
-                return size_t(uint32(hash >> 32) ^ uint32(hash));
-            }
+            return std::size_t(l ^ h);
         }
-    };
+        else
+        {
+            uint64 hash = l ^ h;
+            return size_t(uint32(hash >> 32) ^ uint32(hash));
+        }
+    }
+};
 
-    template <>
-    struct std::formatter<raoe::uuid>
+template <>
+struct std::formatter<raoe::uuid>
+{
+    constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+
+    auto format(const raoe::uuid& id, std::format_context& ctx) const
     {
-        constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+        uint32 first = static_cast<uint32>(id.m_bytes[0]) << 24 | static_cast<uint32>(id.m_bytes[1]) << 16 |
+                       static_cast<uint32>(id.m_bytes[2]) << 8 | static_cast<uint32>(id.m_bytes[3]);
 
-        auto format(const raoe::uuid& id, std::format_context& ctx)
-        {
-            uint32 first = static_cast<uint32>(id.m_bytes[0]) << 24 | static_cast<uint32>(id.m_bytes[1]) << 16 |
-                           static_cast<uint32>(id.m_bytes[2]) << 8 | static_cast<uint32>(id.m_bytes[3]);
+        uint16 second = static_cast<uint16>(id.m_bytes[4]) << 8 | static_cast<uint16>(id.m_bytes[5]);
 
-            uint16 second = static_cast<uint16>(id.m_bytes[4]) << 8 | static_cast<uint16>(id.m_bytes[5]);
+        uint16 third = static_cast<uint16>(id.m_bytes[6]) << 8 | static_cast<uint16>(id.m_bytes[7]);
 
-            uint16 third = static_cast<uint16>(id.m_bytes[6]) << 8 | static_cast<uint16>(id.m_bytes[7]);
+        uint16 fourth = static_cast<uint16>(id.m_bytes[8]) << 8 | static_cast<uint16>(id.m_bytes[9]);
 
-            uint16 fourth = static_cast<uint16>(id.m_bytes[8]) << 8 | static_cast<uint16>(id.m_bytes[9]);
-
-            return std::format_to(ctx.out(), "{:08x}-{:04x}-{:04x}-{:04x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}", first,
-                                  second, third, fourth, id.m_bytes[10], id.m_bytes[11], id.m_bytes[12], id.m_bytes[13],
-                                  id.m_bytes[14], id.m_bytes[15]);
-        }
-    };
-}
+        return std::format_to(ctx.out(), "{:08x}-{:04x}-{:04x}-{:04x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}", first,
+                              second, third, fourth, id.m_bytes[10], id.m_bytes[11], id.m_bytes[12], id.m_bytes[13],
+                              id.m_bytes[14], id.m_bytes[15]);
+    }
+};
