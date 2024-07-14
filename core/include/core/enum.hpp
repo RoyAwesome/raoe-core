@@ -24,27 +24,33 @@ namespace raoe::core
 }
 
 template <raoe::core::is_integral_enum E>
+constexpr inline auto underlying(E e)
+{
+    return static_cast<std::underlying_type_t<E>>(e);
+}
+
+template <raoe::core::is_integral_enum E>
 constexpr E operator~(E rhs) noexcept
 {
-    return static_cast<E>(~static_cast<std::underlying_type_t<E>>(rhs));
+    return static_cast<E>(~underlying(rhs));
 }
 
 template <raoe::core::is_integral_enum E>
 constexpr E operator|(E lhs, E rhs) noexcept
 {
-    return static_cast<E>(static_cast<std::underlying_type_t<E>>(lhs) | static_cast<std::underlying_type_t<E>>(rhs));
+    return static_cast<E>(underlying(lhs) | underlying(rhs));
 }
 
 template <raoe::core::is_integral_enum E>
 constexpr E operator&(E lhs, E rhs) noexcept
 {
-    return static_cast<E>(static_cast<std::underlying_type_t<E>>(lhs) & static_cast<std::underlying_type_t<E>>(rhs));
+    return static_cast<E>(underlying(lhs) & underlying(rhs));
 }
 
 template <raoe::core::is_integral_enum E>
 constexpr E operator^(E lhs, E rhs) noexcept
 {
-    return static_cast<E>(static_cast<std::underlying_type_t<E>>(lhs) ^ static_cast<std::underlying_type_t<E>>(rhs));
+    return static_cast<E>(underlying(lhs) ^ underlying(rhs));
 }
 
 template <raoe::core::is_integral_enum E>
@@ -68,19 +74,13 @@ constexpr E& operator^=(E& lhs, E rhs) noexcept
 template <raoe::core::is_integral_enum E>
 constexpr bool operator==(E lhs, E rhs) noexcept
 {
-    return static_cast<std::underlying_type_t<E>>(lhs) == static_cast<std::underlying_type_t<E>>(rhs);
+    return underlying(lhs) == underlying(rhs);
 }
 
 template <raoe::core::is_integral_enum E>
 constexpr bool operator!=(E lhs, E rhs) noexcept
 {
-    return static_cast<std::underlying_type_t<E>>(lhs) != static_cast<std::underlying_type_t<E>>(rhs);
-}
-
-template <raoe::core::is_integral_enum E>
-constexpr auto underlying(E e)
-{
-    return static_cast<std::underlying_type_t<E>>(e);
+    return underlying(lhs) != underlying(rhs);
 }
 
 namespace raoe::core

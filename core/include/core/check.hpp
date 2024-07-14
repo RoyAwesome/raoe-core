@@ -33,8 +33,6 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include <stacktrace>
 #endif
 
-
-
 namespace raoe
 {
     namespace _internal
@@ -77,8 +75,9 @@ namespace raoe
         spdlog::critical("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
                          reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column());
 #else
-		std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
-			reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column()) << std::endl;
+        std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
+                                 reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column())
+                  << std::endl;
 #endif
         raoe::debug::debug_break();
         std::abort();
@@ -107,9 +106,10 @@ namespace raoe
                          std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
                          reason.m_location.line(), reason.m_location.column());
 #else
-		std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
-			std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
-			reason.m_location.line(), reason.m_location.column()) << std::endl;
+        std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
+                                 std::format(reason.m_reason, std::forward<Args>(args)...),
+                                 reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column())
+                  << std::endl;
 #endif
         raoe::debug::debug_break();
         std::abort();
@@ -118,7 +118,7 @@ namespace raoe
     // Panics if the condition is true, printing the reason and location to the console
     // and breaking into the debugger if possible.
     // This function can return.  If it panics it will exit the program with a non-zero exit code.
-    template<typename... Args>
+    template <typename... Args>
     inline void check_if(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason,
                          Args&&... args) noexcept
         requires(sizeof...(Args) > 0)
@@ -129,45 +129,50 @@ namespace raoe
         }
     }
 
-	// Ensures that a condition is true, otherwise reports an error with the given reason and location.
-    inline void ensure(bool condition, _internal::panic_sv reason) noexcept
-	{
-		if (condition)
-		{
-			return;
-	    }
+    // Ensures that a condition is true, otherwise reports an error with the given reason and location.
+    inline bool ensure(bool condition, _internal::panic_sv reason) noexcept
+    {
+        if(condition)
+        {
+            return true;
+        }
 
 #ifdef RAOE_CORE_USE_SPDLOG
         spdlog::critical("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
-            reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column());
+                         reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column());
 #else
         std::cerr << std::format("!!!Panic!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}", reason.m_reason,
-            reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column()) << std::endl;
+                                 reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column())
+                  << std::endl;
 #endif
         raoe::debug::debug_break();
+        return false;
     }
 
-	template <typename... Args>
-	inline void ensure(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason, Args&&... args) noexcept
+    template <typename... Args>
+    inline bool ensure(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason,
+                       Args&&... args) noexcept
         requires(sizeof...(Args) > 0)
     {
-		if (condition)
-		{
-			return;
-		}
+        if(condition)
+        {
+            return true;
+        }
 #ifdef RAOE_CORE_USE_SPDLOG
         spdlog::error("!!!ENSURE!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
-            std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
-            reason.m_location.line(), reason.m_location.column());
+                      std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
+                      reason.m_location.line(), reason.m_location.column());
 #else
         std::cerr << std::format("!!!ENSURE!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
-            std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
-            reason.m_location.line(), reason.m_location.column()) << std::endl;
+                                 std::format(reason.m_reason, std::forward<Args>(args)...),
+                                 reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column())
+                  << std::endl;
 #endif
         raoe::debug::debug_break();
+        return false;
     }
 
-	// Abort Helper, catches std::terminates and prints the exception
+    // Abort Helper, catches std::terminates and prints the exception
     // Use this in your main function with std::set_terminate()
     [[noreturn]] inline void on_terminate()
     {
@@ -175,18 +180,18 @@ namespace raoe
         {
             std::rethrow_exception(std::current_exception());
         }
-        catch (const std::exception& e)
+        catch(const std::exception& e)
         {
-			panic("Uncaught exception: {}", e.what());
+            panic("Uncaught exception: {}", e.what());
         }
-        catch (...)
+        catch(...)
         {
-			panic("Uncaught exception!");
+            panic("Uncaught exception!");
         }
 #if _cpp_lib_stacktrace > 202011L
         panic("TERMINATE CALLED. Stacktrace:\{},", std::to_string(std::stacktrace::current()))
 #else
-		panic("TERMINATE CALLED.");
+        panic("TERMINATE CALLED.");
 #endif //_cpp_lib_stacktrace > 202011L
     }
 }
