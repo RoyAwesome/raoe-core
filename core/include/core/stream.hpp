@@ -15,6 +15,7 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 */
 #pragma once
 
+#include "core/core.hpp"
 #include <istream>
 #include <string_view>
 
@@ -34,7 +35,6 @@ namespace raoe::stream
         std::for_each(from_string.begin(), from_string.end(),
                       [&into_container](TChar c)
                       {
-            
                           auto bytes = raoe::as_bytes(c);
                           for(auto byte : bytes)
                           {
@@ -42,5 +42,10 @@ namespace raoe::stream
                           }
                       });
         return true;
+    }
+    template <typename TChar>
+    bool read_stream_into(std::output_iterator<std::byte> auto into_container, std::basic_string<TChar> from_string)
+    {
+        return read_stream_into(into_container, std::basic_string_view<TChar>(from_string));
     }
 }
