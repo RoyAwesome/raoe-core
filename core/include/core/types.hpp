@@ -69,7 +69,8 @@ namespace raoe
     template <typename T>
     const std::span<const std::byte> as_bytes(const T& o)
     {
-        return std::span<const std::byte>(std::addressof(o), sizeof(T));
+        auto as_span_t = std::span<const T, 1>(std::addressof(o), 1);
+        return std::as_bytes(as_span_t);
     }
 
     template <typename T>
@@ -82,10 +83,14 @@ namespace raoe
     template <std::integral T>
     constexpr T byteswap(T value) noexcept
     {
+#if __cpp_lib_byteswap == 202110L
+        return std::byteswap(value);
+#else
         static_assert(std::has_unique_object_representations_v<T>, "T may not have padding bits");
         auto value_rep = std::bit_cast<std::array<uint8, sizeof(T)>>(value);
         std::ranges::reverse(value_rep);
         return std::bit_cast<T>(value_rep);
+#endif
     }
 }
 
