@@ -41,6 +41,8 @@ namespace raoe::stream
                               (*into_container++) = byte;
                           }
                       });
+        // Ensure we always zero terminate this string
+        (*into_container++) = std::byte(0);
         return true;
     }
     template <typename TChar>
