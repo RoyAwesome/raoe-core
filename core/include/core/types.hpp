@@ -100,19 +100,19 @@ namespace raoe
     inline namespace _
     {
         template <typename T>
-        T xorshift(const T& n, int i) noexcept
+        constexpr T xorshift(const T& n, int i) noexcept
         {
             return n ^ (n << i);
         }
 
-        [[nodiscard]] inline uint32 distribute(uint32 n) noexcept
+        [[nodiscard]] inline constexpr uint32 distribute(uint32 n) noexcept
         {
             uint32 p = 0x55555555ul; // pattern of alternating 0 and 1
             uint32 c = 3423571495ul; // random uneven integer constant;
             return c * xorshift(p * xorshift(n, 16), 16);
         }
 
-        [[nodiscard]] inline uint64 distribute(uint64 n) noexcept
+        [[nodiscard]] inline constexpr uint64 distribute(uint64 n) noexcept
         {
             const uint64 p = 0x5555555555555555ull;   // pattern of alternating 0 and 1
             const uint64 c = 17316035218449499591ull; // random uneven integer constant;
@@ -121,9 +121,9 @@ namespace raoe
     }
 
     template <typename T>
-    [[nodiscard]] inline size_t hash_combine(std::size_t seed, const T& v) noexcept
+    [[nodiscard]] inline constexpr std::size_t hash_combine(std::size_t seed, const T& v) noexcept
     {
-        return std::rotl(seed, std::numeric_limits<size_t>::digits / 3) ^ distribute(std::hash<T> {}(v));
+        return std::rotl(seed, std::numeric_limits<std::size_t>::digits / 3) ^ distribute(std::hash<T> {}(v));
     }
 }
 
