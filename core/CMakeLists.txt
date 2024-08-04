@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.26)
 
-
-set(CPM_DOWNLOAD_VERSION 0.40.0)
+set(CPM_DOWNLOAD_VERSION 0.40.1)
 
 if(CPM_SOURCE_CACHE)
     set(CPM_DOWNLOAD_LOCATION "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
@@ -21,44 +20,41 @@ endif()
 
 include(${CPM_DOWNLOAD_LOCATION})
 
-#set the default values for using libassert and spdlog
+# set the default values for using libassert and spdlog
 if(NOT DEFINED RAOE_CORE_USE_LIBASSERT)
     set(RAOE_CORE_USE_LIBASSERT 1)
 endif()
 
 if(NOT DEFINED RAOE_CORE_USE_SPDLOG)
-	set(RAOE_CORE_USE_SPDLOG 1)
+    set(RAOE_CORE_USE_SPDLOG 1)
 endif()
 
 if(NOT DEFINED RAOE_CORE_EMIT_MODULE)
     set(RAOE_CORE_EMIT_MODULE 0)
 endif()
 
-
-#build the dependencies for the core module based on the configuration
+# build the dependencies for the core module based on the configuration
 set(RAOE_CORE_COMPILE_DEFINITIONS "")
 set(RAOE_CORE_INTERFACES "")
 set(RAOE_CORE_TRANSITIVE "")
 list(APPEND RAOE_CORE_INTERFACES "ctre::ctre")
 
 if(RAOE_CORE_USE_LIBASSERT)
-	CPMAddPackage("gh:jeremy-rifkin/libassert#v1.1")
+    CPMAddPackage("gh:jeremy-rifkin/libassert#v1.1")
     list(APPEND RAOE_CORE_COMPILE_DEFINITIONS "RAOE_CORE_USE_LIBASSERT=1")
     list(APPEND RAOE_CORE_TRANSITIVE "assert")
 endif()
 
 if(RAOE_CORE_USE_SPDLOG)
-    CPMAddPackage("gh:gabime/spdlog#v1.11.0")
+    set(SPDLOG_USE_STD_FORMAT ON) # todo: allow this to be configurable
+    CPMAddPackage("gh:gabime/spdlog#v1.14.1")
     list(APPEND RAOE_CORE_COMPILE_DEFINITIONS "RAOE_CORE_USE_SPDLOG=1")
     list(APPEND RAOE_CORE_INTERFACES "spdlog::spdlog_header_only")
 endif()
 
 CPMAddPackage("gh:hanickadot/compile-time-regular-expressions#main")
 
-
-
-
-if(RAOE_CORE_EMIT_MODULE) #EXPERIMENTAL: Export this library as a cpp20 module
+if(RAOE_CORE_EMIT_MODULE) # EXPERIMENTAL: Export this library as a cpp20 module
     raoe_add_module(
         MODULE
         NAME "core"
@@ -70,29 +66,29 @@ if(RAOE_CORE_EMIT_MODULE) #EXPERIMENTAL: Export this library as a cpp20 module
             ${RAOE_CORE_TRANSITIVE}
         COMPILE_DEFINITIONS
             PUBLIC
-              RAOE_CORE_COMPILE_DEFINITIONS
+        RAOE_CORE_COMPILE_DEFINITIONS
         INCLUDE_DIRECTORIES
             PUBLIC
-                "include"
-         CPP_SOURCE_FILES
+        "include"
+        CPP_SOURCE_FILES
             "mod.ixx"
     )
-else() #STANDARD: Export this library as a header only library
+else() # STANDARD: Export this library as a header only library
     raoe_add_module(
         HEADERONLY
         NAME "core"
         NAMESPACE "raoe"
         TARGET_VARIABLE
             RAOE_CORE_TARGET
-        DEPENDENCIES 
-			INTERFACE
-				${RAOE_CORE_INTERFACES}
+        DEPENDENCIES
+        INTERFACE
+        ${RAOE_CORE_INTERFACES}
         COMPILE_DEFINITIONS
             PUBLIC
-              RAOE_CORE_COMPILE_DEFINITIONS
+        RAOE_CORE_COMPILE_DEFINITIONS
         INCLUDE_DIRECTORIES
             PUBLIC
-                "include"
+        "include"
         CPP_SOURCE_FILES
             "mod.ixx"
     )
@@ -100,5 +96,4 @@ else() #STANDARD: Export this library as a header only library
     foreach(RAOE_CORE_TRANSITIVE_ITEM IN ITEMS ${RAOE_CORE_TRANSITIVE})
         target_link_libraries(${RAOE_CORE_TARGET} INTERFACE ${RAOE_CORE_TRANSITIVE_ITEM} $<TARGET_OBJECTS:${RAOE_CORE_TRANSITIVE_ITEM}>)
     endforeach()
-
 endif()
