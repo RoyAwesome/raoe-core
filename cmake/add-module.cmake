@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 macro(raoe_add_module)
     set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE)
     set(oneValueArgs NAME NAMESPACE CXX_STANDARD TARGET_VARIABLE)
-    set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES COPY_DIRECTORY)
+    set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES SYMLINK_IN_DEV)
 
     cmake_parse_arguments(raoe_add_module "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
@@ -118,12 +118,19 @@ macro(raoe_add_module)
     endif()
 
     # if this module wants to copy out a directory post build, set up those commands here
-    if(DEFINED raoe_add_module_COPY_DIRECTORY)
-        foreach(raoe_add_module_ITEM IN ITEMS ${raoe_add_module_COPY_DIRECTORY})
+    if(DEFINED raoe_add_module_SYMLINK_IN_DEV)
+        foreach(raoe_add_module_ITEM IN ITEMS ${raoe_add_module_SYMLINK_IN_DEV})
+            set(raoe_add_module_DIRLINK_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${raoe_add_module_ITEM}")
+            set(raoe_add_module_DIRLINK_TARGET_PATH "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_ITEM}")
+
+            if(WIN32)
+                set(raoe_add_module_EXECUTE_STRING cmd /C mklink /J "${raoe_add_module_REAL_SRC_PATH}" "${raoe_add_module_DIRLINK_TARGET_PATH}")
+            else()
+                set(raoe_add_module_EXECUTE_STRING ln -sf "${raoe_add_module_DIRLINK_SOURCE_PATH}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/")
+            endif()
+
             add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
-                "${CMAKE_SOURCE_DIR}/${raoe_add_module_ITEM}"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_ITEM}/"
+                COMMAND ${raoe_add_module_EXECUTE_STRING}
             )
         endforeach()
     endif()
