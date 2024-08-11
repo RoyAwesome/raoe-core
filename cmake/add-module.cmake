@@ -121,9 +121,9 @@ macro(raoe_add_module)
     if(DEFINED raoe_add_module_COPY_DIRECTORY)
         foreach(raoe_add_module_ITEM IN ITEMS ${raoe_add_module_COPY_DIRECTORY})
             add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -e copy_directory
-                ${CMAKE_SOURCE_DIR}/${raoe_add_module_ITEM}
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>${raoe_add_module_ITEM}
+                COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                "${CMAKE_SOURCE_DIR}/${raoe_add_module_ITEM}"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_ITEM}/"
             )
         endforeach()
     endif()
