@@ -83,7 +83,7 @@ namespace raoe
         std::abort();
     }
 
-    // Panics if the condition is true, printing the reason and location to the console
+    // Panics if the condition is false, printing the reason and location to the console
     // and breaking into the debugger if possible.
     // This function can return.  If it panics it will exit the program with a non-zero exit code.
     inline void check_if(bool condition, _internal::panic_sv reason) noexcept
@@ -115,7 +115,7 @@ namespace raoe
         std::abort();
     }
 
-    // Panics if the condition is true, printing the reason and location to the console
+    // Panics if the condition is false, printing the reason and location to the console
     // and breaking into the debugger if possible.
     // This function can return.  If it panics it will exit the program with a non-zero exit code.
     template <typename... Args>
