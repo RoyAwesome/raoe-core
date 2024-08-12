@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.26)
 
 raoe_add_module(
+    STATIC
     NAME "filesystem"
     NAMESPACE "raoe"
     INCLUDE_DIRECTORIES
@@ -11,4 +12,5 @@ raoe_add_module(
     DEPENDENCIES
     PUBLIC
         physfs-static
+        raoe::core
 )

@@ -7,6 +7,14 @@ macro(raoe_add_module)
 
     cmake_parse_arguments(raoe_add_module "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
+    if(NOT raoe_add_module_STATIC
+        AND NOT raoe_add_module_SHARED
+        AND NOT raoe_add_module_MODULE
+        AND NOT raoe_add_module_HEADERONLY
+        AND NOT raoe_add_module_EXECUTABLE)
+        message(FATAL_ERROR "raoe_add_module called without a valid module mode (must be STATIC, SHARED, MODULE, HEADERONLY, EXECUTABLE)")
+    endif()
+
     if(NOT raoe_add_module_CXX_STANDARD)
         if(NOT CMAKE_CXX_STANDARD)
             set(raoe_add_module_CXX_STANDARD 20)

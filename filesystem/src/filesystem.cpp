@@ -17,11 +17,11 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include "fs/filesystem.hpp"
 
 #include "physfs.h"
-#include "filesystem.hpp"
+#include "fs/filesystem.hpp"
 
 namespace raoe::fs
 {
-    [[nodiscard]] static inline auto maybe_error(auto value)
+    static inline auto maybe_error(auto value)
     {
         if(!(!!value))
         {
@@ -225,7 +225,7 @@ namespace raoe::fs
     void base_fstream::set_error_bit(fstream_flags flag, bool should_close)
     {
         m_flags |= flag;
-        if(close)
+        if(should_close)
         {
             close();
         }
