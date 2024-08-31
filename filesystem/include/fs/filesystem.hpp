@@ -241,7 +241,7 @@ namespace raoe::fs
     };
 
     void init_fs(std::string arg0, std::filesystem::path base_path, std::string app_name, std::string org_name);
-    void mount(std::filesystem::path path, std::filesystem::path mount_point = {}, bool append_to_search_path = true);
+    void mount(std::filesystem::path path, std::filesystem::path mount_point = "", bool append_to_search_path = true);
 
     void permit_symlinks(bool allow);
 

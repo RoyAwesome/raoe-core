@@ -57,12 +57,7 @@ namespace raoe::fs
 
     void mount(std::filesystem::path path, std::filesystem::path mount_point, bool append_to_search_path)
     {
-        const char* mount_path = nullptr;
-        if(!mount_point.empty())
-        {
-            mount_path = mount_point.c_str();
-        }
-        maybe_error(PHYSFS_mount(path.c_str(), mount_path, append_to_search_path));
+        maybe_error(PHYSFS_mount(path.c_str(), mount_point.c_str(), append_to_search_path));
     }
 
     void permit_symlinks(bool allow)
