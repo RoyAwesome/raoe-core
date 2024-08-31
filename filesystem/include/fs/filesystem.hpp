@@ -20,6 +20,8 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <istream>
+#include <ostream>
 
 struct PHYSFS_File;
 
@@ -42,6 +44,8 @@ namespace raoe::fs
             : m_underlying(std::u8string(path.begin(), path.end()))
         {
         }
+
+        operator std::u8string_view() const { return std::u8string_view(m_underlying); }
 
         std::u8string u8string() const { return m_underlying; }
         std::filesystem::path filesystem_path() const { return m_underlying; }
@@ -100,6 +104,10 @@ namespace raoe::fs
         std::u8string::value_type& operator[](std::size_t pos) { return m_underlying[pos]; }
 
         const char8_t* c_str() const { return m_underlying.c_str(); }
+        const std::string_view string_view() const
+        {
+            return std::string_view(reinterpret_cast<const char*>(m_underlying.data()), m_underlying.size());
+        }
 
         class path_iterator
         {
@@ -201,68 +209,35 @@ namespace raoe::fs
         beg,
     };
 
-    class base_fstream
+    class base_physfs_stream
     {
-      public:
-        ~base_fstream();
-        void close();
-        int64 tellg() const { return m_current_position; }
-        int64 gcount() const { return m_last_rw_len; }
-
-        bool sync();
-
-        [[nodiscard]] inline fstream_flags rdstate() const { return m_flags; }
-        [[nodiscard]] inline bool good() const { return m_flags == fstream_flags::good; }
-        [[nodiscard]] inline bool eof() const { return raoe::core::has_any_flags(m_flags, fstream_flags::eof); }
-        [[nodiscard]] inline bool fail() const { return raoe::core::has_any_flags(m_flags, fstream_flags::fail); }
-        [[nodiscard]] inline bool bad() const { return raoe::core::has_any_flags(m_flags, fstream_flags::bad); }
-
-        [[nodiscard]] inline bool is_open() const { return m_file; }
-
       protected:
-        base_fstream() = default;
-
-        void set_error_bit(fstream_flags flag, bool close = true);
-        void seekg_internal(int64 pos, fstream_dir dir = fstream_dir::beg);
-
         PHYSFS_File* m_file = nullptr;
-        int64 m_last_rw_len = 0;
-        int64 m_current_position = 0;
-        fstream_flags m_flags = fstream_flags::good;
+
+      public:
+        base_physfs_stream(PHYSFS_File* in_file);
+        virtual ~base_physfs_stream();
+        std::size_t length();
     };
 
-    class ifstream : public base_fstream
+    class ifstream : public base_physfs_stream, public std::istream
     {
       public:
-        ifstream()
-            : base_fstream()
-        {
-        }
-        explicit ifstream(path p, bool buffer = false);
-
-        ifstream& open(path p, bool buffer = false);
-
-        ifstream& read(std::byte* buffer, std::size_t size);
-        ifstream& read(std::span<std::byte> buffer) { return read(buffer.data(), buffer.size()); }
-
-        ifstream& seekg(int64 pos, fstream_dir dir = fstream_dir::beg);
+        ifstream(path in_path);
+        virtual ~ifstream();
     };
 
-    class ofstream : public base_fstream
+    enum class write_mode : uint8
+    {
+        write,
+        append,
+    };
+
+    class ofstream : public base_physfs_stream, public std::ostream
     {
       public:
-        ofstream()
-            : base_fstream()
-        {
-        }
-        explicit ofstream(path p, bool append = true, bool buffer = false);
-
-        ofstream& open(path p, bool append = true, bool buffer = false);
-
-        ofstream& write(const std::byte* buffer, std::size_t size);
-        ofstream& write(std::span<const std::byte> buffer) { return write(buffer.data(), buffer.size()); }
-
-        ofstream& seekp(int64 pos, fstream_dir dir = fstream_dir::beg);
+        ofstream(path in_path, write_mode mode = write_mode::write);
+        virtual ~ofstream();
     };
 
     void init_fs(std::string arg0, std::filesystem::path base_path, std::string app_name, std::string org_name);
@@ -305,4 +280,32 @@ namespace raoe::fs
     {
         return stat(path).type == file_type::symlink;
     }
+}
+
+namespace std
+{
+    template <>
+    struct hash<raoe::fs::path>
+    {
+        std::size_t operator()(const raoe::fs::path& path) const
+        {
+            return std::hash<std::u8string> {}(path.u8string());
+        }
+    };
+
+    template <>
+    struct formatter<raoe::fs::path>
+    {
+        template <typename ParseContext>
+        constexpr auto parse(ParseContext& ctx) const
+        {
+            return ctx.begin();
+        }
+
+        template <typename FormatContext>
+        auto format(const raoe::fs::path& value, FormatContext& ctx) const
+        {
+            return format_to(ctx.out(), "{}", reinterpret_cast<const char*>(value.c_str()));
+        }
+    };
 }

@@ -28,6 +28,13 @@ namespace raoe::stream
         return true;
     }
 
+    inline bool read_stream_into(std::string& into_string, std::istream& from_stream)
+    {
+        std::for_each(std::istreambuf_iterator<char>(from_stream), std::istreambuf_iterator<char>(),
+                      [&into_string](const char c) { into_string += c; });
+        return true;
+    }
+
     template <typename TChar, typename TTraits = std::char_traits<TChar>>
     bool read_stream_into(std::output_iterator<std::byte> auto into_container,
                           std::basic_string_view<TChar, TTraits> from_string)

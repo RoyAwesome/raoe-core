@@ -19,6 +19,8 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include "physfs.h"
 #include "fs/filesystem.hpp"
 
+#include <streambuf>
+
 namespace raoe::fs
 {
     static inline auto maybe_error(auto value)
@@ -95,147 +97,6 @@ namespace raoe::fs
             !!stats.readonly};
     }
 
-    ifstream::ifstream(path p, bool buffer)
-        : base_fstream()
-    {
-        open(p, buffer);
-    }
-
-    ifstream& ifstream::open(path p, bool buffer)
-    {
-        if(m_file)
-        {
-            close();
-        }
-
-        m_flags = fstream_flags::good;
-
-        m_file = PHYSFS_openRead(reinterpret_cast<const char*>(p.c_str()));
-
-        if(!m_file)
-        {
-            set_error_bit(fstream_flags::fail);
-            return *this;
-        }
-
-        if(buffer)
-        {
-            PHYSFS_Stat stats;
-            if(!PHYSFS_stat(reinterpret_cast<const char*>(p.c_str()), &stats))
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-            if(!PHYSFS_setBuffer(m_file, stats.filesize))
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-        }
-
-        return *this;
-    }
-    base_fstream::~base_fstream()
-    {
-        close();
-    }
-    void base_fstream::close()
-    {
-        if(m_file)
-        {
-            if(!PHYSFS_close(m_file))
-            {
-                set_error_bit(fstream_flags::bad, false);
-            }
-            m_file = nullptr;
-        }
-    }
-    ifstream& ifstream::read(std::byte* buffer, std::size_t size)
-    {
-        if(m_file)
-        {
-            m_last_rw_len = PHYSFS_readBytes(m_file, buffer, size);
-            if(m_last_rw_len == -1)
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-            m_current_position = PHYSFS_tell(m_file);
-            if(m_current_position == -1)
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-            PHYSFS_eof(m_file) ? m_flags |= fstream_flags::eof : m_flags &= ~fstream_flags::eof;
-        }
-        return *this;
-    }
-
-    void base_fstream::seekg_internal(int64 pos, fstream_dir dir)
-    {
-        if(m_file)
-        {
-            int64 new_pos = 0;
-            if(dir == fstream_dir::cur)
-            {
-                new_pos = m_current_position + pos;
-            }
-            else if(dir == fstream_dir::end)
-            {
-
-                new_pos = PHYSFS_fileLength(m_file) - pos;
-            }
-            else
-            {
-                new_pos = pos;
-            }
-
-            if(!PHYSFS_seek(m_file, new_pos))
-            {
-                set_error_bit(fstream_flags::fail);
-                return;
-            }
-
-            m_current_position = PHYSFS_tell(m_file);
-            if(m_current_position == -1)
-            {
-                set_error_bit(fstream_flags::fail);
-                return;
-            }
-        }
-    }
-
-    ifstream& ifstream::seekg(int64 pos, fstream_dir dir)
-    {
-        seekg_internal(pos, dir);
-        return *this;
-    }
-    bool base_fstream::sync()
-    {
-        if(m_file)
-        {
-            if(!PHYSFS_flush(m_file))
-            {
-                set_error_bit(fstream_flags::fail);
-                return false;
-            }
-        }
-        return true;
-    }
-    void base_fstream::set_error_bit(fstream_flags flag, bool should_close)
-    {
-        m_flags |= flag;
-        if(should_close)
-        {
-            close();
-        }
-
-        PHYSFS_ErrorCode ec = PHYSFS_getLastErrorCode();
-        const char* error = PHYSFS_getErrorByCode(ec);
-
-        raoe::ensure(false, "Filesystem Error {}: {}", static_cast<int32>(ec), error);
-    }
-
     std::filesystem::path path::real_path() const
     {
         const char* real_path = PHYSFS_getRealDir(reinterpret_cast<const char*>(m_underlying.c_str()));
@@ -245,73 +106,145 @@ namespace raoe::fs
         }
         return std::filesystem::path(real_path);
     }
-    ofstream::ofstream(path p, bool append, bool buffer)
+
+    base_physfs_stream::base_physfs_stream(PHYSFS_File* in_file)
+        : m_file(in_file)
     {
-        open(p, append, buffer);
+        raoe::check_if(m_file != nullptr, "Input file is nullptr");
     }
-    ofstream& ofstream::open(path p, bool append, bool buffer)
+    base_physfs_stream::~base_physfs_stream()
     {
-        if(m_file)
+        if(m_file != nullptr)
         {
-            close();
+            PHYSFS_close(m_file);
         }
-
-        m_flags = fstream_flags::good;
-
-        if(append)
-        {
-            m_file = PHYSFS_openAppend(reinterpret_cast<const char*>(p.c_str()));
-        }
-        else
-        {
-            m_file = PHYSFS_openWrite(reinterpret_cast<const char*>(p.c_str()));
-        }
-
-        if(!m_file)
-        {
-            set_error_bit(fstream_flags::fail);
-            return *this;
-        }
-
-        if(buffer)
-        {
-            PHYSFS_Stat stats;
-            if(!PHYSFS_stat(reinterpret_cast<const char*>(p.c_str()), &stats))
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-            if(!PHYSFS_setBuffer(m_file, stats.filesize))
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-        }
-
-        return *this;
     }
-    ofstream& ofstream::write(const std::byte* buffer, std::size_t size)
+    std::size_t base_physfs_stream::length()
     {
-        if(m_file)
+        if(m_file == nullptr)
         {
-            m_last_rw_len = PHYSFS_writeBytes(m_file, buffer, size);
-            if(m_last_rw_len == -1)
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
-            m_current_position = PHYSFS_tell(m_file);
-            if(m_current_position == -1)
-            {
-                set_error_bit(fstream_flags::fail);
-                return *this;
-            }
+            return {};
         }
-        return *this;
+        return PHYSFS_fileLength(m_file);
     }
-    ofstream& ofstream::seekp(int64 pos, fstream_dir dir)
+
+    template <std::size_t TBufferSize = 2048>
+    class physfs_streambuf : public std::streambuf
     {
-        seekg_internal(pos, dir);
-        return *this;
+      private:
+        physfs_streambuf(const physfs_streambuf&) = delete;
+        physfs_streambuf& operator=(const physfs_streambuf&) = delete;
+
+        int_type underflow() override
+        {
+            raoe::check_if(m_file != nullptr, "File is nullptr");
+
+            if(PHYSFS_eof(m_file))
+            {
+                return traits_type::eof();
+            }
+
+            char buff[1];
+            std::size_t bytes_read = PHYSFS_readBytes(m_file, m_buffer.data(), TBufferSize);
+            if(bytes_read < 1)
+            {
+                return traits_type::eof();
+            }
+            setg(m_buffer.data(), m_buffer.data(), m_buffer.data() + bytes_read);
+            return (unsigned char)(*gptr());
+        }
+
+        pos_type seekoff(off_type pos, std::ios_base::seekdir dir, std::ios_base::openmode mode) override
+        {
+            raoe::check_if(m_file != nullptr, "File is nullptr");
+
+            switch(dir)
+            {
+                case std::ios_base::beg: PHYSFS_seek(m_file, pos); break;
+                case std::ios_base::cur: PHYSFS_seek(m_file, (PHYSFS_tell(m_file) + pos) - (egptr() - gptr())); break;
+                case std::ios_base::end: PHYSFS_seek(m_file, PHYSFS_fileLength(m_file) + pos); break;
+                default: break;
+            }
+            if(mode & std::ios_base::in)
+            {
+                setg(egptr(), egptr(), egptr());
+            }
+            if(mode & std::ios_base::out)
+            {
+                setp(m_buffer.data(), m_buffer.data());
+            }
+            return PHYSFS_tell(m_file);
+        }
+
+        pos_type seekpos(pos_type pos, std::ios_base::openmode mode) override
+        {
+            raoe::check_if(m_file != nullptr, "File is nullptr");
+
+            PHYSFS_seek(m_file, pos);
+            if(mode & std::ios_base::in)
+            {
+                setg(egptr(), egptr(), egptr());
+            }
+            if(mode & std::ios_base::out)
+            {
+                setp(m_buffer.data(), m_buffer.data());
+            }
+            return PHYSFS_tell(m_file);
+        }
+
+        int_type overflow(int_type c = traits_type::eof()) override
+        {
+            raoe::check_if(m_file != nullptr, "File is nullptr");
+
+            if(pptr() == pbase() && c == traits_type::eof())
+            {
+                return {};
+            }
+            if(c != traits_type::eof())
+            {
+                if(PHYSFS_writeBytes(m_file, &c, 1) < 1)
+                {
+                    return traits_type::eof();
+                }
+            }
+            return {};
+        }
+
+        int sync() override { return overflow(); }
+
+        PHYSFS_File* m_file = nullptr;
+        std::array<char, TBufferSize> m_buffer;
+
+      public:
+        physfs_streambuf(PHYSFS_File* in_file)
+            : m_file(in_file)
+        {
+            setg(m_buffer.end(), m_buffer.end(), m_buffer.end());
+            setp(m_buffer.data(), m_buffer.end());
+        }
+
+        ~physfs_streambuf() { sync(); }
+    };
+
+    ifstream::ifstream(path in_path)
+        : base_physfs_stream(PHYSFS_openRead(reinterpret_cast<const char*>(in_path.c_str())))
+        , std::istream(new physfs_streambuf<>(m_file))
+    {
+    }
+
+    ifstream::~ifstream()
+    {
+        delete rdbuf();
+    }
+    ofstream::ofstream(path in_path, write_mode mode)
+        : base_physfs_stream(mode == write_mode::write
+                                 ? PHYSFS_openWrite(reinterpret_cast<const char*>(in_path.c_str()))
+                                 : PHYSFS_openAppend(reinterpret_cast<const char*>(in_path.c_str())))
+        , std::ostream(new physfs_streambuf<>(m_file))
+    {
+    }
+    ofstream::~ofstream()
+    {
+        delete rdbuf();
     }
 }
