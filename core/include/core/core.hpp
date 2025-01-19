@@ -26,3 +26,4 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include "core/typename.hpp"
 #include "core/types.hpp"
 #include "core/uuid.hpp"
+#include "core/format.hpp"

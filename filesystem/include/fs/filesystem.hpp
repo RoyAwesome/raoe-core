@@ -292,20 +292,7 @@ namespace std
             return std::hash<std::u8string> {}(path.u8string());
         }
     };
-
-    template <>
-    struct formatter<raoe::fs::path>
-    {
-        template <typename ParseContext>
-        constexpr auto parse(ParseContext& ctx) const
-        {
-            return ctx.begin();
-        }
-
-        template <typename FormatContext>
-        auto format(const raoe::fs::path& value, FormatContext& ctx) const
-        {
-            return format_to(ctx.out(), "{}", reinterpret_cast<const char*>(value.c_str()));
-        }
-    };
 }
+
+RAOE_CORE_DECLARE_FORMATTER(raoe::fs::path,
+                            return format_to(ctx.out(), "{}", reinterpret_cast<const char*>(value.c_str()));)

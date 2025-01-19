@@ -23,6 +23,8 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 
 #include "ctre.hpp"
 
+#include "core/format.hpp"
+
 namespace raoe
 {
     class tag
@@ -195,40 +197,4 @@ struct std::hash<raoe::tag>
     std::size_t operator()(const raoe::tag& tag) const noexcept { return std::hash<std::string> {}(tag.m_tag); }
 };
 
-template <>
-struct std::formatter<raoe::tag>
-{
-    template <typename ParseContext>
-    constexpr auto parse(ParseContext& ctx) const
-    {
-        return ctx.begin();
-    }
-
-    template <typename FormatContext>
-    auto format(const raoe::tag& tag, FormatContext& ctx) const
-    {
-        return std::format_to(ctx.out(), "{}", std::string_view(tag));
-    }
-};
-
-#if RAOE_CORE_USE_SPDLOG
-
-#include "spdlog/spdlog.h"
-
-template <>
-struct fmt::formatter<raoe::tag>
-{
-    template <typename ParseContext>
-    constexpr auto parse(ParseContext& ctx) const
-    {
-        return ctx.begin();
-    }
-
-    template <typename FormatContext>
-    auto format(const raoe::tag& tag, FormatContext& ctx) const
-    {
-        return fmt::format_to(ctx.out(), "{}", std::string_view(tag));
-    }
-};
-
-#endif
+RAOE_CORE_DECLARE_FORMATTER(raoe::tag, return format_to(ctx.out(), "{}", std::string_view(value));)
