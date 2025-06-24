@@ -18,10 +18,10 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include "core/core.hpp"
 
 #include <filesystem>
-#include <string>
-#include <string_view>
 #include <istream>
 #include <ostream>
+#include <string>
+#include <string_view>
 
 struct PHYSFS_File;
 
@@ -39,7 +39,7 @@ namespace raoe::fs
             : m_underlying(path.u8string())
         {
         }
-        template <typename TChar>
+        template<typename TChar>
         path(const std::basic_string<TChar>& path)
             : m_underlying(std::u8string(path.begin(), path.end()))
         {
@@ -223,8 +223,13 @@ namespace raoe::fs
     class ifstream : public base_physfs_stream, public std::istream
     {
       public:
-        ifstream(path in_path);
+        ifstream(raoe::fs::path in_path);
         virtual ~ifstream();
+
+        [[nodiscard]] const raoe::fs::path& path() const { return m_in_path; }
+
+      private:
+        raoe::fs::path m_in_path;
     };
 
     enum class write_mode : uint8
@@ -284,7 +289,7 @@ namespace raoe::fs
 
 namespace std
 {
-    template <>
+    template<>
     struct hash<raoe::fs::path>
     {
         std::size_t operator()(const raoe::fs::path& path) const

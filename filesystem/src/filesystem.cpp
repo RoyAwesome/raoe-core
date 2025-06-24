@@ -16,8 +16,8 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 
 #include "fs/filesystem.hpp"
 
-#include "physfs.h"
 #include "fs/filesystem.hpp"
+#include "physfs.h"
 
 #include <streambuf>
 
@@ -123,7 +123,7 @@ namespace raoe::fs
         return PHYSFS_fileLength(m_file);
     }
 
-    template <std::size_t TBufferSize = 2048>
+    template<std::size_t TBufferSize = 2048>
     class physfs_streambuf : public std::streambuf
     {
       private:
@@ -221,9 +221,10 @@ namespace raoe::fs
         ~physfs_streambuf() { sync(); }
     };
 
-    ifstream::ifstream(path in_path)
+    ifstream::ifstream(raoe::fs::path in_path)
         : base_physfs_stream(PHYSFS_openRead(reinterpret_cast<const char*>(in_path.c_str())))
         , std::istream(new physfs_streambuf<>(m_file))
+        , m_in_path(in_path)
     {
     }
 
