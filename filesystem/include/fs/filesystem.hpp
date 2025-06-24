@@ -117,7 +117,7 @@ namespace raoe::fs
             {
                 m_path = path;
                 m_current = m_path.find(u8'/');
-                m_last = m_path.rfind(u8'/');
+                m_last = m_path.size();
             }
 
             static path_iterator make_last(const std::u8string& path)
@@ -129,7 +129,7 @@ namespace raoe::fs
 
             path_iterator& operator++()
             {
-                if(m_current != std::u8string::npos)
+                if(m_current != std::u8string::npos && m_current < m_last)
                 {
                     m_current = m_path.find(u8'/', m_current + 1);
                 }
@@ -138,7 +138,7 @@ namespace raoe::fs
 
             path_iterator& operator--()
             {
-                if(m_current != std::u8string::npos)
+                if(m_current != std::u8string::npos && m_current > 0)
                 {
                     m_current = m_path.rfind(u8'/', m_current - 1);
                 }
@@ -155,6 +155,7 @@ namespace raoe::fs
                 {
                     return path(m_path);
                 }
+
                 return path(m_path.substr(0, m_current));
             }
 
@@ -178,7 +179,7 @@ namespace raoe::fs
             }
             return path(fname.m_underlying.substr(0, last));
         }
-        path filename() const { return *end(); }
+        path filename() const { return path(m_underlying.substr(m_underlying.rfind(u8'/'), m_underlying.size())); }
         path parent_path() const
         {
             if(m_underlying.empty())
@@ -186,6 +187,17 @@ namespace raoe::fs
                 return path();
             }
             return path(m_underlying.substr(0, m_underlying.rfind(u8'/')));
+        }
+        path extension() const
+        {
+            // return just the extension of the filename
+            auto fname = filename();
+            auto last = fname.m_underlying.rfind(u8'.');
+            if(last == std::u8string::npos)
+            {
+                return {};
+            }
+            return path(fname.m_underlying.substr(last, fname.m_underlying.size()));
         }
 
         [[nodiscard]] std::filesystem::path real_path() const;
