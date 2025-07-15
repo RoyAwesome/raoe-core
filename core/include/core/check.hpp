@@ -22,12 +22,12 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #endif
 
 #include "debug.hpp"
+#include <concepts>
 #include <cstdlib>
+#include <format>
 #include <source_location>
 #include <string_view>
-#include <format>
 #include <type_traits>
-#include <concepts>
 
 #if _cpp_lib_stacktrace > 202011L
 #include <stacktrace>
@@ -39,7 +39,7 @@ namespace raoe
     {
         struct panic_sv
         {
-            template <class T>
+            template<class T>
                 requires std::constructible_from<std::string_view, T>
             panic_sv(const T& s, std::source_location loc = std::source_location::current()) noexcept
                 : m_reason(s)
@@ -51,10 +51,10 @@ namespace raoe
             std::source_location m_location;
         };
 
-        template <typename... Args>
+        template<typename... Args>
         struct panic_fmt
         {
-            template <typename T>
+            template<typename T>
             consteval panic_fmt(const T& t, std::source_location loc = std::source_location::current()) noexcept
                 : m_reason(t)
                 , m_location(loc)
@@ -97,7 +97,7 @@ namespace raoe
     // Panics the program, printing the reason and location to the console
     // and breaking into the debugger if possible.
     // This function does not return, and will exit the program with a non-zero exit code.
-    template <typename... Args>
+    template<typename... Args>
     [[noreturn]] inline void panic(_internal::panic_fmt<std::type_identity_t<Args>...> reason, Args&&... args) noexcept
         requires(sizeof...(Args) > 0)
     {
@@ -118,7 +118,7 @@ namespace raoe
     // Panics if the condition is false, printing the reason and location to the console
     // and breaking into the debugger if possible.
     // This function can return.  If it panics it will exit the program with a non-zero exit code.
-    template <typename... Args>
+    template<typename... Args>
     inline void check_if(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason,
                          Args&&... args) noexcept
         requires(sizeof...(Args) > 0)
@@ -149,7 +149,7 @@ namespace raoe
         return false;
     }
 
-    template <typename... Args>
+    template<typename... Args>
     inline bool ensure(bool condition, _internal::panic_fmt<std::type_identity_t<Args>...> reason,
                        Args&&... args) noexcept
         requires(sizeof...(Args) > 0)
@@ -170,6 +170,22 @@ namespace raoe
 #endif
         raoe::debug::debug_break();
         return false;
+    }
+
+    template<typename... Args>
+    inline void ensure_always(_internal::panic_fmt<std::type_identity_t<Args>...> reason, Args&&... args)
+    {
+#ifdef RAOE_CORE_USE_SPDLOG
+        spdlog::error("!!!ENSURE!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
+                      std::format(reason.m_reason, std::forward<Args>(args)...), reason.m_location.file_name(),
+                      reason.m_location.line(), reason.m_location.column());
+#else
+        std::cerr << std::format("!!!ENSURE!!!!\n\nReason: \"{}\"\n\nWhere:\n\t{}:{}:{}",
+                                 std::format(reason.m_reason, std::forward<Args>(args)...),
+                                 reason.m_location.file_name(), reason.m_location.line(), reason.m_location.column())
+                  << std::endl;
+#endif
+        raoe::debug::debug_break();
     }
 
     // Abort Helper, catches std::terminates and prints the exception
