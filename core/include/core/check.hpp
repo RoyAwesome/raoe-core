@@ -205,7 +205,7 @@ namespace raoe
             panic("Uncaught exception!");
         }
 #if _cpp_lib_stacktrace > 202011L
-        panic("TERMINATE CALLED. Stacktrace:\{},", std::to_string(std::stacktrace::current()))
+        panic("TERMINATE CALLED. Stacktrace:\n{},", std::to_string(std::stacktrace::current()))
 #else
         panic("TERMINATE CALLED.");
 #endif //_cpp_lib_stacktrace > 202011L

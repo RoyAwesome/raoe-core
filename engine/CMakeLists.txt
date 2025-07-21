@@ -9,6 +9,7 @@ raoe_add_module(
         "include"
         CPP_SOURCE_FILES
         "src/engine.cpp"
+        "src/sys/window.cpp"
         DEPENDENCIES
         PUBLIC
         raoe::core
@@ -21,7 +22,7 @@ raoe_add_module(
         nlohmann_json::nlohmann_json
         glad
         imgui
-        imgui-backends
+        imgui-backend
         lua
         tomlplusplus::tomlplusplus
 )
