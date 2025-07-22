@@ -87,9 +87,13 @@ namespace raoe::engine
     {
         return flecs::world(_world->world_);
     }
+
     flecs::world init_engine(int argc, char* argv[], std::string app_name, std::string org_name)
     {
         _command_line_args = std::vector<std::string_view>(argv, argv + argc);
+
+        spdlog::info("Starting RAOE with game {}", app_name);
+        spdlog::info("Command line arguments: '{}'", raoe::string::join(_command_line_args, ", "));
 
         std::set_terminate(on_terminate);
 
@@ -121,6 +125,12 @@ namespace raoe::engine
 
         return flecs::world(_world->world_);
     }
+
+    void shutdown_engine() noexcept
+    {
+        _world.reset();
+    }
+
     const engine_info_t& engine_info() noexcept
     {
         return _world->get<engine_info_t>();

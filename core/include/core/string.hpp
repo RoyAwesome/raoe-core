@@ -16,57 +16,55 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #pragma once
 
 #include <algorithm>
-#include <locale>
 #include <cctype>
-#include <sstream>
 #include <iterator>
+#include <locale>
+#include <numeric>
+#include <sstream>
 #include <vector>
-#include <algorithm>
 
- namespace raoe::string
-{    
-    //Left Trim a string, inline.  Removes all whitespace characters from the left side of the string, modifying it in place
+namespace raoe::string
+{
+    // Left Trim a string, inline.  Removes all whitespace characters from the left side of the string, modifying it in
+    // place
     inline void ltrim(std::string& s)
     {
-        s.erase(
-            s.begin(), 
-            std::find_if(s.begin(), s.end(), [](unsigned char ch){
-            return !std::isspace(ch);
-            })
-        );
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
     }
 
-    //Right Trim a string, inline.  Removes all whitespace characters from the right side of the string, modifying it in place  
+    // Right Trim a string, inline.  Removes all whitespace characters from the right side of the string, modifying it
+    // in place
     inline void rtrim(std::string& s)
     {
-        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch){
-            return !std::isspace(ch);
-        }).base(),
-        s.end());
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
     }
 
-    //Trim a string, inline.  Removes all whitespace characters from the right and left side of the string, modifying it in place  
+    // Trim a string, inline.  Removes all whitespace characters from the right and left side of the string, modifying
+    // it in place
     inline void trim(std::string& s)
     {
         ltrim(s);
         rtrim(s);
     }
 
-    //Right Trim a string, copy.  Removes all whitespace characters from the right side of the string, returning a copy of the original string
+    // Right Trim a string, copy.  Removes all whitespace characters from the right side of the string, returning a copy
+    // of the original string
     inline std::string rtrim_c(std::string s)
     {
         rtrim(s);
         return s;
     }
 
-    //Left Trim a string, copy.  Removes all whitespace characters from the left side of the string, returning a copy of the original string
+    // Left Trim a string, copy.  Removes all whitespace characters from the left side of the string, returning a copy
+    // of the original string
     inline std::string ltrim_c(std::string s)
     {
         ltrim(s);
         return s;
     }
 
-    //Trim a string, copy.  Removes all whitespace characters from the left and right side of the string, returning a copy of the original string
+    // Trim a string, copy.  Removes all whitespace characters from the left and right side of the string, returning a
+    // copy of the original string
     inline std::string trim_c(std::string s)
     {
         rtrim(s);
@@ -109,20 +107,19 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
         return trim_r(trim_l(s));
     }
 
- 
-
-    inline void split(std::string_view sv, std::string_view delimiter, std::output_iterator<std::string_view> auto out_itr)
+    inline void split(std::string_view sv, std::string_view delimiter,
+                      std::output_iterator<std::string_view> auto out_itr)
     {
         size_t start = 0;
         size_t cursor = start;
         while(cursor != sv.length())
-        {           
+        {
             while(cursor != sv.length() && sv.substr(cursor, delimiter.length()).compare(delimiter) != 0)
             {
                 cursor++;
-            }           
-           
-             *out_itr++ = sv.substr(start, cursor - start);
+            }
+
+            *out_itr++ = sv.substr(start, cursor - start);
 
             if(cursor == sv.length())
             {
@@ -136,16 +133,16 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 
     inline void split(std::string_view sv, char delimiter, std::output_iterator<std::string_view> auto out_itr)
     {
-         size_t start = 0;
+        size_t start = 0;
         size_t cursor = start;
         while(cursor != sv.length())
-        {           
+        {
             while(cursor != sv.length() && sv[cursor] != delimiter)
             {
                 cursor++;
-            }           
-           
-             *out_itr++ = sv.substr(start, cursor - start);
+            }
+
+            *out_itr++ = sv.substr(start, cursor - start);
 
             if(cursor == sv.length())
             {
@@ -155,6 +152,25 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
             cursor++;
             start = cursor;
         }
+    }
+
+    inline std::string join(const auto& range, const std::string_view delimiter)
+    {
+        if(range.empty())
+        {
+            return std::string {};
+        }
+        std::stringstream sstream;
+        for(const auto& item : range)
+        {
+            sstream << item;
+            if(&item != &range.back())
+            {
+                sstream << delimiter;
+            }
+        }
+
+        return sstream.str();
     }
 
     inline std::string_view token(std::string_view sv, std::string_view token)
@@ -169,13 +185,13 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 
     inline bool contains(std::string_view sv, char token)
     {
-        return std::ranges::any_of(sv, [token](char c) { return c == token; } );
+        return std::ranges::any_of(sv, [token](char c) { return c == token; });
     }
 
     inline std::size_t replace_all(std::string& str, std::string_view what, std::string_view with)
     {
-        std::size_t count{};
-        std::size_t pos{};
+        std::size_t count {};
+        std::size_t pos {};
         while((pos = str.find(what, pos)) != std::string::npos)
         {
             str.replace(pos, what.length(), with);
@@ -184,5 +200,5 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
         }
         return count;
     }
-   
+
 }

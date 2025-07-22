@@ -89,6 +89,7 @@ namespace raoe::engine::sys
 
     void init_glfw(flecs::iter it)
     {
+        it.world().defer_suspend();
         using namespace std::literals::string_view_literals;
 
         glfwSetErrorCallback(glfw_error_callback);
@@ -128,6 +129,7 @@ namespace raoe::engine::sys
         spdlog::info("Initializing ImGui for window: {}", main_window);
         ImGui_ImplGlfw_InitForOpenGL(window->native_handle(), true);
         ImGui_ImplOpenGL3_Init();
+        it.world().defer_resume();
     }
 
     void shutdown_glfw(flecs::iter it)
