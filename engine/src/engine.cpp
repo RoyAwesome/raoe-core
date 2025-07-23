@@ -21,6 +21,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "fs/filesystem.hpp"
 
+#include "engine/sys/pack.hpp"
 #include "engine/sys/window.hpp"
 
 namespace raoe::engine
@@ -47,6 +48,7 @@ namespace raoe::engine
                               entities::render_tick::render_end);
 
             world.import <sys::window_module>();
+            world.import <sys::pack_module>();
             world.system("Load Important Assets")
                 .kind(entities::startup::on_pre_init)
                 .immediate()

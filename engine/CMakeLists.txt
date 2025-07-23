@@ -10,6 +10,10 @@ raoe_add_module(
         CPP_SOURCE_FILES
         "src/engine.cpp"
         "src/sys/window.cpp"
+        "src/sys/pack.cpp"
+        COMPILE_DEFINITIONS
+        PRIVATE
+        "TOML_EXCEPTIONS=0" # disable exceptions in toml
         DEPENDENCIES
         PUBLIC
         raoe::core
