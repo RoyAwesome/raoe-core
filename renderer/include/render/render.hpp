@@ -68,4 +68,5 @@ namespace raoe::render
 
     void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform,
                      const render_assets& render_assets);
+    void clear_surface(const glm::u8vec4 color);
 }

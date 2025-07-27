@@ -17,8 +17,6 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/render.hpp"
 #include "render/render.hpp"
 
-#include "glad/glad.h"
-
 struct scoped_world_defer_suspend
 {
     explicit scoped_world_defer_suspend(flecs::world_t* world)
@@ -80,9 +78,7 @@ void compute_render_transform_2d(const flecs::entity e, raoe::render::render_tra
 
 void prepare_frame(flecs::iter itr)
 {
-    glClearColor(raoe::render::colors::cornflower_blue.r / 255.0f, raoe::render::colors::cornflower_blue.g / 255.0f,
-                 raoe::render::colors::cornflower_blue.b / 255.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    raoe::render::clear_surface(raoe::render::colors::cornflower_blue);
 }
 
 void draw_frame(flecs::iter itr)

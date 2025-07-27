@@ -223,28 +223,6 @@ namespace raoe::render
         //     .generate_buffers();
     }
 
-    // void compute_render_transform(flecs::iter itr)
-    // {
-    //     while(itr.next())
-    //     {
-    //         auto rt = itr.field<render_transform>(0);
-    //
-    //         // compute the transform for this entity
-    //         glm::mat4 model = glm::identity<glm::mat4>();
-    //         flecs::entity transform_e = itr.src(0);
-    //         while(transform_e.is_valid())
-    //         {
-    //             if(transform_e.has<transform>())
-    //             {
-    //                 model = transform_e.get<transform>()->matrix() * model;
-    //             }
-    //             transform_e = transform_e.parent();
-    //         }
-    //
-    //         rt->model = model;
-    //     }
-    // }
-
     std::tuple<int32, int32> get_size_and_gl_type(const renderer_type uniform_type)
     {
         switch(uniform_type)
@@ -368,7 +346,7 @@ namespace raoe::render
     void clear_surface(const glm::u8vec4 color)
     {
         glClearColor(static_cast<float>(color.r) / 255.f, static_cast<float>(color.g) / 255.f,
-                     static_cast<float>(color.g) / 255.f, static_cast<float>(color.a) / 255.f);
+                     static_cast<float>(color.b) / 255.f, static_cast<float>(color.a) / 255.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
