@@ -340,7 +340,7 @@ namespace raoe::render
             glDisable(GL_CULL_FACE);
 
             // write the uniforms
-            (*s)["mvp"] = camera.get_camera_matrix() * render_transform.model;
+            (*s)["mvp"] = camera.get_camera_matrix() * render_transform.cached_world_transform;
             (*s)["tex"] = *render_assets.error_texture;
 
             // draw the mesh

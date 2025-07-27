@@ -37,6 +37,40 @@ namespace raoe::engine
         std::string engine_version = "0.1.0";
     };
 
+    struct transform_3d
+    {
+        glm::vec3 position = glm::vec3(0.0f);
+        glm::quat rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        glm::vec3 scale = glm::vec3(1.0f);
+
+        [[nodiscard]] glm::mat4 to_matrix() const noexcept
+        {
+            auto mat = glm::identity<glm::mat4>();
+            mat = glm::translate(mat, position);
+            mat *= glm::mat4_cast(rotation);
+            mat = glm::scale(mat, scale);
+            return mat;
+        }
+    };
+    struct transform_2d
+    {
+        glm::vec2 position = glm::vec2(0.0f);
+        float rotation = 0.0f; // in radians
+        glm::vec2 scale = glm::vec2(1.0f);
+        glm::vec2 origin = glm::vec2(0.0f);
+
+        [[nodiscard]] glm::mat4 to_matrix() const noexcept
+        {
+            auto mat = glm::identity<glm::mat4>();
+            // 2D transformations are in the XY plane, so we use a translation, rotation around Z, and scale
+            mat = glm::translate(mat, glm::vec3(position + origin, 0.0f)); // Move to origin first for rotation
+            mat = glm::rotate(mat, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+            mat = glm::translate(mat, glm::vec3(-origin, 0.0f)); // Move back from origin
+            mat = glm::scale(mat, glm::vec3(scale, 1.0f));
+            return mat;
+        }
+    };
+
     // Returns a handle to the engine's ECS world.
     flecs::world world() noexcept;
 
@@ -69,8 +103,7 @@ namespace raoe::engine
             main_window,
             input,
             renderer,
-            error_shader,
-            error_texture,
+            render_assets,
             core_pack,
         };
 

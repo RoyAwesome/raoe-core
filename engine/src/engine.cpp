@@ -16,6 +16,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "engine/engine.hpp"
 
+#include "engine/render.hpp"
+
 #include <ranges>
 #include <utility>
 
@@ -48,7 +50,11 @@ namespace raoe::engine
             register_pipeline(world, flecs::OnUpdate, entities::render_tick::render_begin,
                               entities::render_tick::render_end);
 
+            world.component<transform_2d>();
+            world.component<transform_3d>();
+
             world.import <sys::window_module>();
+            world.import <render_module>();
             world.import <sys::pack_module>();
             world.system("Load Important Assets")
                 .kind(entities::startup::on_pre_init)

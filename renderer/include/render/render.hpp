@@ -28,11 +28,12 @@ namespace raoe::render
         class shader;
     }
 
-    class mesh;
+    struct mesh;
 
     struct render_transform
     {
-        glm::mat4 model = glm::identity<glm::mat4>();
+        glm::mat4 cached_local_transform = glm::identity<glm::mat4>();
+        glm::mat4 cached_world_transform = glm::identity<glm::mat4>();
     };
 
     class camera

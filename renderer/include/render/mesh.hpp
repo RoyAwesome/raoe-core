@@ -121,8 +121,8 @@ namespace raoe::render
         std::size_t m_index_count = 0;
         std::size_t m_index_size = 0;
 
-        std::optional<render::vertex_buffer> m_vertex_buffer;
-        std::optional<render::index_buffer> m_index_buffer;
+        std::optional<vertex_buffer> m_vertex_buffer;
+        std::optional<index_buffer> m_index_buffer;
 
         bool m_dirty = false;
     };
