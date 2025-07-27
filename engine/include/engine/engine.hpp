@@ -101,9 +101,7 @@ namespace raoe::engine
         enum class engine
         {
             main_window,
-            input,
-            renderer,
-            render_assets,
+            main_camera,
             core_pack,
         };
 

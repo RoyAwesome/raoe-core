@@ -28,6 +28,7 @@ namespace raoe::engine
     struct render_info
     {
         std::shared_ptr<render::mesh> mesh;
+        flecs::ref<render::camera> camera;
     };
 
 }

@@ -17,6 +17,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/render.hpp"
 #include "render/render.hpp"
 
+#include "glad/glad.h"
+
 struct scoped_world_defer_suspend
 {
     explicit scoped_world_defer_suspend(flecs::world_t* world)
@@ -34,6 +36,8 @@ void init_render(const flecs::iter it)
 
     auto assets = raoe::render::init_renderer();
     it.world().set<raoe::render::render_assets>(std::move(assets));
+
+    it.world().entity(raoe::engine::entities::engine::main_camera).add<raoe::render::camera>();
 }
 
 void compute_render_transform_3d(flecs::entity e, raoe::render::render_transform& rt,
@@ -74,6 +78,41 @@ void compute_render_transform_2d(const flecs::entity e, raoe::render::render_tra
     }
 }
 
+void prepare_frame(flecs::iter itr)
+{
+    glClearColor(raoe::render::colors::cornflower_blue.r / 255.0f, raoe::render::colors::cornflower_blue.g / 255.0f,
+                 raoe::render::colors::cornflower_blue.b / 255.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void draw_frame(flecs::iter itr)
+{
+    // Get the global infos
+    const auto& render_assets = itr.world().get<raoe::render::render_assets>();
+    flecs::ref<raoe::render::camera> main_camera = {itr.world().entity(raoe::engine::entities::engine::main_camera)};
+    raoe::check_if(main_camera,
+                   "No main camera found. Please ensure a camera is set as the main camera in the engine.");
+    while(itr.next())
+    {
+        const auto render_info = itr.field<const raoe::engine::render_info>(0);
+        const auto render_transform = itr.field<const raoe::render::render_transform>(1);
+
+        if(!render_info->mesh)
+        {
+            spdlog::warn("No Mesh for entity {}. Skipping rendering.", itr.entity(0));
+            continue;
+        }
+
+        flecs::ref<raoe::render::camera> camera = render_info->camera;
+        if(!camera)
+        {
+            camera = main_camera;
+        }
+
+        raoe::render::render_mesh(*camera.get(), *render_info->mesh, *render_transform, render_assets);
+    }
+}
+
 raoe::engine::render_module::render_module(const flecs::world& world)
 {
     world.component<render::render_transform>();
@@ -88,4 +127,8 @@ raoe::engine::render_module::render_module(const flecs::world& world)
     world.system<render::render_transform, const transform_2d>()
         .kind(entities::render_tick::render_begin)
         .each(compute_render_transform_2d);
+
+    world.system().kind(entities::render_tick::render_begin).run(prepare_frame);
+
+    world.system<const render_info, const render::render_transform>().kind(entities::render_tick::draw).run(draw_frame);
 }
