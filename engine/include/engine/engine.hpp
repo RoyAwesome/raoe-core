@@ -71,7 +71,7 @@ namespace raoe::engine
             renderer,
             error_shader,
             error_texture,
-            engine_pack,
+            core_pack,
         };
 
         enum class startup

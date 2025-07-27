@@ -32,8 +32,9 @@ namespace raoe::engine
     void load_important_assets(flecs::iter itr)
     {
         spdlog::info("Begin Load Important Assets");
-        // TODO: Mount the core pack
-
+        // Mount the core pack
+        sys::load_pack(itr.world().entity(entities::engine::core_pack), "assets/packs/core",
+                       sys::pack_flags::system | sys::pack_flags::game);
         // TODO: Load the configuration .inis
 
         // TODO: Load the default shaders and textures
