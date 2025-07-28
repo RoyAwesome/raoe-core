@@ -13,6 +13,10 @@ raoe_add_module(
         "src/mesh.cpp"
         "src/shader.cpp"
         "src/texture.cpp"
+        "src/immediate.cpp"
+        COMPILE_DEFINITIONS
+        PRIVATE
+        "GLM_ENABLE_EXPERIMENTAL=1" # disable exceptions in toml
         DEPENDENCIES
         PUBLIC
         raoe::core

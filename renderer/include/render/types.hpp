@@ -141,6 +141,32 @@ namespace raoe::render
         }
     };
 
+    struct vertex_pos_uv_color_normal
+    {
+        glm::vec3 position;
+        glm::vec2 uv;
+        glm::u8vec4 color;
+        glm::vec3 normal;
+    };
+    template<>
+    struct renderer_type_of<vertex_pos_uv_color_normal>
+    {
+        static std::span<const type_description> elements()
+        {
+            static constexpr std::array<const type_description, 4> ele = {
+                type_description {renderer_type::vec3, offsetof(vertex_pos_uv_color_normal, position),
+                                  sizeof(glm::vec3),                                                                        type_hint::position},
+                type_description {renderer_type::vec2, offsetof(vertex_pos_uv_color_normal, uv),       sizeof(glm::vec2),
+                                  type_hint::uv                                                                                                },
+                type_description {renderer_type::u8,   offsetof(vertex_pos_uv_color_normal, color),    sizeof(glm::u8vec4),
+                                  type_hint::color                                                                                             },
+                type_description {renderer_type::vec3, offsetof(vertex_pos_uv_color_normal, normal),   sizeof(glm::vec3),
+                                  type_hint::normal                                                                                            },
+            };
+            return ele;
+        }
+    };
+
     constexpr std::size_t elements_hash(const std::span<const type_description> elements)
     {
         std::size_t hash = 0;
@@ -232,31 +258,33 @@ namespace raoe::render
 
 RAOE_CORE_DECLARE_FORMATTER(
     raoe::render::renderer_type, switch(value) {
-    case raoe::render::renderer_type::none: return format_to(ctx.out(), "renderer_type::none");
-    case raoe::render::renderer_type::i8: return format_to(ctx.out(), "renderer_type::i8");
-    case raoe::render::renderer_type::i16: return format_to(ctx.out(), "renderer_type::i16");
-    case raoe::render::renderer_type::i32: return format_to(ctx.out(), "renderer_type::i32");
-    case raoe::render::renderer_type::u8: return format_to(ctx.out(), "renderer_type::u8");
-    case raoe::render::renderer_type::u16: return format_to(ctx.out(), "renderer_type::u16");
-    case raoe::render::renderer_type::u32: return format_to(ctx.out(), "renderer_type::u32");
-    case raoe::render::renderer_type::f32: return format_to(ctx.out(), "renderer_type::f32");
-    case raoe::render::renderer_type::f64: return format_to(ctx.out(), "renderer_type::f64");
-    case raoe::render::renderer_type::vec2: return format_to(ctx.out(), "renderer_type::vec2");
-    case raoe::render::renderer_type::vec3: return format_to(ctx.out(), "renderer_type::vec3");
-    case raoe::render::renderer_type::vec4: return format_to(ctx.out(), "renderer_type::vec4");
-    case raoe::render::renderer_type::mat2: return format_to(ctx.out(), "renderer_type::mat2");
-    case raoe::render::renderer_type::mat3: return format_to(ctx.out(), "renderer_type::mat3");
-    case raoe::render::renderer_type::mat4: return format_to(ctx.out(), "renderer_type::mat4");
-    case raoe::render::renderer_type::texture1d: return format_to(ctx.out(), "renderer_type::texture1d");
-    case raoe::render::renderer_type::texture2d: return format_to(ctx.out(), "renderer_type::texture2d");
-    case raoe::render::renderer_type::texture3d: return format_to(ctx.out(), "renderer_type::texture3d");
-    case raoe::render::renderer_type::texture_cube: return format_to(ctx.out(), "renderer_type::texture_cube");
-    case raoe::render::renderer_type::texture1d_array: return format_to(ctx.out(), "renderer_type::texture1d_array");
-    case raoe::render::renderer_type::texture2d_array: return format_to(ctx.out(), "renderer_type::texture2d_array");
-    case raoe::render::renderer_type::texture_cube_array:
-        return format_to(ctx.out(), "renderer_type::texture_cube_array");
-    case raoe::render::renderer_type::any_texture: return format_to(ctx.out(), "renderer_type::any_texture");
-    case raoe::render::renderer_type::custom: return format_to(ctx.out(), "renderer_type::custom");
-    case raoe::render::renderer_type::count: return format_to(ctx.out(), "renderer_type::count");
-    default: return format_to(ctx.out(), "renderer_type::unknown");
+        case raoe::render::renderer_type::none: return format_to(ctx.out(), "renderer_type::none");
+        case raoe::render::renderer_type::i8: return format_to(ctx.out(), "renderer_type::i8");
+        case raoe::render::renderer_type::i16: return format_to(ctx.out(), "renderer_type::i16");
+        case raoe::render::renderer_type::i32: return format_to(ctx.out(), "renderer_type::i32");
+        case raoe::render::renderer_type::u8: return format_to(ctx.out(), "renderer_type::u8");
+        case raoe::render::renderer_type::u16: return format_to(ctx.out(), "renderer_type::u16");
+        case raoe::render::renderer_type::u32: return format_to(ctx.out(), "renderer_type::u32");
+        case raoe::render::renderer_type::f32: return format_to(ctx.out(), "renderer_type::f32");
+        case raoe::render::renderer_type::f64: return format_to(ctx.out(), "renderer_type::f64");
+        case raoe::render::renderer_type::vec2: return format_to(ctx.out(), "renderer_type::vec2");
+        case raoe::render::renderer_type::vec3: return format_to(ctx.out(), "renderer_type::vec3");
+        case raoe::render::renderer_type::vec4: return format_to(ctx.out(), "renderer_type::vec4");
+        case raoe::render::renderer_type::mat2: return format_to(ctx.out(), "renderer_type::mat2");
+        case raoe::render::renderer_type::mat3: return format_to(ctx.out(), "renderer_type::mat3");
+        case raoe::render::renderer_type::mat4: return format_to(ctx.out(), "renderer_type::mat4");
+        case raoe::render::renderer_type::texture1d: return format_to(ctx.out(), "renderer_type::texture1d");
+        case raoe::render::renderer_type::texture2d: return format_to(ctx.out(), "renderer_type::texture2d");
+        case raoe::render::renderer_type::texture3d: return format_to(ctx.out(), "renderer_type::texture3d");
+        case raoe::render::renderer_type::texture_cube: return format_to(ctx.out(), "renderer_type::texture_cube");
+        case raoe::render::renderer_type::texture1d_array:
+            return format_to(ctx.out(), "renderer_type::texture1d_array");
+        case raoe::render::renderer_type::texture2d_array:
+            return format_to(ctx.out(), "renderer_type::texture2d_array");
+        case raoe::render::renderer_type::texture_cube_array:
+            return format_to(ctx.out(), "renderer_type::texture_cube_array");
+        case raoe::render::renderer_type::any_texture: return format_to(ctx.out(), "renderer_type::any_texture");
+        case raoe::render::renderer_type::custom: return format_to(ctx.out(), "renderer_type::custom");
+        case raoe::render::renderer_type::count: return format_to(ctx.out(), "renderer_type::count");
+        default: return format_to(ctx.out(), "renderer_type::unknown");
     };)

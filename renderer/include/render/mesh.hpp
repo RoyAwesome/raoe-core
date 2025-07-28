@@ -152,4 +152,5 @@ namespace raoe::render
         std::string m_debug_name;
         std::vector<mesh_part> m_elements;
     };
+
 }
