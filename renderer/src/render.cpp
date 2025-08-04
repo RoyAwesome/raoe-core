@@ -204,8 +204,7 @@ namespace raoe::render
                 }
             }
         }
-        out_assets.error_texture = std::make_shared<texture::texture_2d>(
-            std::as_bytes(std::span(checkerboard)), texture::format::rgba8, glm::ivec3(64, 64, 1), texture::params {});
+        out_assets.error_texture = std::make_shared<texture_2d>(checkerboard, glm::ivec2(64, 64), texture_params {});
 
         return out_assets;
         //
@@ -237,7 +236,8 @@ namespace raoe::render
             case renderer_type::mat2: return {4, GL_FLOAT};
             case renderer_type::mat3: return {9, GL_FLOAT};
             case renderer_type::mat4: return {16, GL_FLOAT};
-            default: return {0, GL_NONE};
+            case renderer_type::color: return {4, GL_UNSIGNED_BYTE};
+            default: panic("Invalid renderer type for size and gl type: {}", underlying(uniform_type));
         }
     }
 
@@ -272,74 +272,67 @@ namespace raoe::render
                      const render_assets& render_assets)
     {
         // loop through each element of the mesh and render it
-        int32 counter = 0;
         for(auto&& [mesh_element, shader] : mesh.m_elements)
         {
             check_if(!!mesh_element, "Mesh element is null");
             // determine which shader we use
             shader::shader* s = shader ? shader.get() : render_assets.error_shader.get();
-
-            if(mesh_element->is_dirty())
-            {
-                spdlog::warn("Mesh {}, element {} is dirty, recompiling", mesh.m_debug_name, counter);
-                mesh_element->generate_buffers();
-            }
-
-            if(!mesh_element->get_vertex_buffer())
-            {
-                continue;
-            }
-
-            // bind the shader
-
-            glUseProgram(s->native_id());
-
-            // bind the vao
-            const uint32 vao = get_or_create_vao(mesh_element->vertex_element_type());
-
-            glBindVertexArray(vao);
-
-            // bind the mesh
-            glVertexArrayVertexBuffer(vao, 0, mesh_element->get_vertex_buffer()->native_buffer(), 0,
-                                      static_cast<GLsizei>(mesh_element->get_vertex_buffer()->element_stride()));
-            const index_buffer* idx = mesh_element->get_index_buffer();
-            if(idx)
-            {
-                glVertexArrayElementBuffer(vao, idx->native_buffer());
-            }
-
-            // Set the pipeline
-            glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LESS);
-            glCullFace(GL_BACK);
-            glFrontFace(GL_CCW);
-
-            // glEnable(GL_CULL_FACE);
-            glDisable(GL_CULL_FACE);
-
             // write the uniforms
+            s->use();
             (*s)["mvp"] = camera.get_camera_matrix() * render_transform.cached_world_transform;
             (*s)["tex"] = *render_assets.error_texture;
 
-            // draw the mesh
-            if(idx)
-            {
-                GLenum mode = GL_NONE;
-                switch(idx->elements()[0].type)
-                {
-                    case renderer_type::u8: mode = GL_UNSIGNED_BYTE; break;
-                    case renderer_type::u16: mode = GL_UNSIGNED_SHORT; break;
-                    case renderer_type::u32: mode = GL_UNSIGNED_INT; break;
-                    default: panic("Invalid index buffer type");
-                }
-                glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(idx->element_count()), mode, nullptr);
-            }
-            else
-            {
-                glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh_element->get_vertex_buffer()->element_count()));
-            }
+            render_mesh_element(*mesh_element);
+        }
+    }
+    void render_mesh_element(mesh_element& mesh_element)
+    {
+        // Generate any buffers if they are not already generated
+        mesh_element.generate_buffers();
 
-            counter++;
+        if(!mesh_element.get_vertex_buffer())
+        {
+            return;
+        }
+        // bind the vao
+        const uint32 vao = get_or_create_vao(mesh_element.vertex_element_type());
+
+        glBindVertexArray(vao);
+
+        // bind the mesh
+        glVertexArrayVertexBuffer(vao, 0, mesh_element.get_vertex_buffer()->native_buffer(), 0,
+                                  static_cast<GLsizei>(mesh_element.get_vertex_buffer()->element_stride()));
+        const index_buffer* idx = mesh_element.get_index_buffer();
+        if(idx)
+        {
+            glVertexArrayElementBuffer(vao, idx->native_buffer());
+        }
+
+        // Set the pipeline
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+
+        // glEnable(GL_CULL_FACE);
+        glDisable(GL_CULL_FACE);
+
+        // draw the mesh
+        if(idx)
+        {
+            GLenum mode = GL_NONE;
+            switch(idx->elements()[0].type)
+            {
+                case renderer_type::u8: mode = GL_UNSIGNED_BYTE; break;
+                case renderer_type::u16: mode = GL_UNSIGNED_SHORT; break;
+                case renderer_type::u32: mode = GL_UNSIGNED_INT; break;
+                default: panic("Invalid index buffer type");
+            }
+            glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(idx->element_count()), mode, nullptr);
+        }
+        else
+        {
+            glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(mesh_element.get_vertex_buffer()->element_count()));
         }
     }
 

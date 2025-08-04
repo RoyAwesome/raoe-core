@@ -162,6 +162,16 @@ namespace raoe::render::shader
         return it->second;
     }
 
+    void shader::use() const
+    {
+        check_if(native_id() > 0, "Shader {} - trying to use a shader that is not compiled", m_debug_name);
+        int32 current_program = 0;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &current_program);
+        if(current_program != native_id())
+        {
+            glUseProgram(native_id());
+        }
+    }
     std::shared_ptr<shader> shader::make_shared(const uint32 id, std::string debug_name)
     {
 
@@ -287,7 +297,7 @@ namespace raoe::render::shader
         }
     }
 
-    void uniform::set_uniform(const texture::texture& texture) const
+    void uniform::set_uniform(const texture& texture) const
     {
         glBindTextureUnit(m_texture_unit, texture.native_id());
     }

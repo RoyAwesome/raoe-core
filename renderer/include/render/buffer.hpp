@@ -135,9 +135,9 @@ namespace raoe::render
             {
                 if(!(element_stride == 8 || element_stride == 16 || element_stride != 32))
                 {
-                    raoe::panic("Type Erased set_data index buffer called with an invalid element size {} (must be 8, "
-                                "16, or 32)",
-                                element_stride);
+                    panic("Type Erased set_data index buffer called with an invalid element size {} (must be 8, "
+                          "16, or 32)",
+                          element_stride);
                 }
             }
             buffer::set_data(data, elements, element_count, element_stride);

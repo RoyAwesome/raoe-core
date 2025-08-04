@@ -19,6 +19,7 @@
 
 #include "core/core.hpp"
 #include "glm/ext.hpp"
+#include "render/render.hpp"
 #include "spdlog/spdlog.h"
 #include <format>
 

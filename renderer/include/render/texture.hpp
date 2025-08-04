@@ -17,9 +17,9 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "render/types.hpp"
 
-namespace raoe::render::texture
+namespace raoe::render
 {
-    enum class format
+    enum class texture_format
     {
         unknown,
         r8,
@@ -44,13 +44,13 @@ namespace raoe::render::texture
         standard = rgba8,
     };
 
-    enum class filter
+    enum class texture_filter
     {
         nearest,
         linear,
     };
 
-    enum class wrap
+    enum class texture_wrap
     {
         clamp_to_edge,
         clamp_to_border,
@@ -58,16 +58,16 @@ namespace raoe::render::texture
         mirrored_repeat,
     };
 
-    struct params
+    struct texture_params
     {
-        wrap wrap_u = wrap::clamp_to_edge;
-        wrap wrap_v = wrap::clamp_to_edge;
-        wrap wrap_w = wrap::clamp_to_edge;
-        filter filter_min = filter::nearest;
-        filter filter_mag = filter::nearest;
+        texture_wrap wrap_u = texture_wrap::clamp_to_edge;
+        texture_wrap wrap_v = texture_wrap::clamp_to_edge;
+        texture_wrap wrap_w = texture_wrap::clamp_to_edge;
+        texture_filter filter_min = texture_filter::nearest;
+        texture_filter filter_mag = texture_filter::nearest;
     };
 
-    enum class type
+    enum class texture_type
     {
         none,
         texture_1d,
@@ -82,15 +82,21 @@ namespace raoe::render::texture
     class texture
     {
       public:
-        ~texture();
+        ~texture()
+        {
+            if(has_gpu_data())
+            {
+                free_gpu_data();
+            }
+        }
 
         [[nodiscard]] uint32 native_id() const { return m_native_id; }
-        [[nodiscard]] format texture_format() const { return m_format; }
+        [[nodiscard]] render::texture_format texture_format() const { return m_format; }
         [[nodiscard]] uint32 array_size() const { return m_array_size; }
         [[nodiscard]] bool mipmaps() const { return m_mipmaps; }
         [[nodiscard]] glm::ivec3 dim() const { return m_dim; }
-        [[nodiscard]] const params& texture_params() const { return m_params; }
-        [[nodiscard]] type texture_type() const { return m_texture_type; }
+        [[nodiscard]] const render::texture_params& texture_params() const { return m_params; }
+        [[nodiscard]] render::texture_type texture_type() const { return m_texture_type; }
 
         texture(const texture&) = delete;
         texture& operator=(const texture&) = delete;
@@ -100,6 +106,7 @@ namespace raoe::render::texture
 
         [[nodiscard]] bool has_cpu_data() const { return !m_data.empty(); }
         [[nodiscard]] std::span<const std::byte> cpu_data() const { return m_data; }
+        [[nodiscard]] bool has_gpu_data() const { return m_native_id != 0; }
 
         void free_cpu_data()
         {
@@ -108,11 +115,12 @@ namespace raoe::render::texture
         }
 
       protected:
-        explicit texture(std::span<const std::byte> data, type texture_type, format format, glm::ivec3 dim,
-                         const params& params, int32 array_size = 1, bool mipmaps = false);
+        explicit texture(std::span<const std::byte> data, render::texture_type type, render::texture_format format,
+                         glm::ivec3 dim, const render::texture_params& params, int32 array_size = 1,
+                         bool mipmaps = false);
 
-        explicit texture(const type texture_type = type::none)
-            : m_texture_type(texture_type)
+        explicit texture(const render::texture_type type = texture_type::none)
+            : m_texture_type(type)
         {
         }
 
@@ -120,38 +128,38 @@ namespace raoe::render::texture
 
         texture(texture&& other) noexcept
             : m_native_id(std::exchange(other.m_native_id, {}))
-            , m_format(std::exchange(other.m_format, format::unknown))
+            , m_format(std::exchange(other.m_format, texture_format::unknown))
             , m_array_size(std::exchange(other.m_array_size, 1))
             , m_mipmaps(std::exchange(other.m_mipmaps, false))
             , m_dim(std::exchange(other.m_dim, glm::ivec3(0, 0, 0)))
-            , m_params(std::exchange(other.m_params, params()))
-            , m_texture_type(std::exchange(other.m_texture_type, type::none))
+            , m_params(std::exchange(other.m_params, texture_params()))
+            , m_texture_type(std::exchange(other.m_texture_type, texture_type::none))
         {
         }
 
         texture& operator=(texture&& other) noexcept
         {
             m_native_id = std::exchange(other.m_native_id, {});
-            m_format = std::exchange(other.m_format, format::unknown);
+            m_format = std::exchange(other.m_format, texture_format::unknown);
             m_array_size = std::exchange(other.m_array_size, 1);
             m_mipmaps = std::exchange(other.m_mipmaps, false);
             m_dim = std::exchange(other.m_dim, glm::ivec3(0, 0, 0));
-            m_params = std::exchange(other.m_params, params());
-            m_texture_type = std::exchange(other.m_texture_type, type::none);
+            m_params = std::exchange(other.m_params, texture_params());
+            m_texture_type = std::exchange(other.m_texture_type, texture_type::none);
             return *this;
         }
 
       private:
         std::vector<std::byte> m_data;
-        format m_format = format::unknown;
+        render::texture_format m_format = texture_format::unknown;
         int32 m_array_size = 1;
         bool m_mipmaps = false;
         glm::ivec3 m_dim = glm::ivec3(0, 0, 0);
-        params m_params = {};
-        type m_texture_type = type::none;
+        render::texture_params m_params = {};
+        render::texture_type m_texture_type = texture_type::none;
     };
 
-    template<type TTextureType>
+    template<texture_type TTextureType>
     class typed_texture final : public texture
     {
       public:
@@ -160,15 +168,79 @@ namespace raoe::render::texture
         {
         }
 
-        typed_texture(const std::span<const std::byte> data, const format format, const glm::ivec3 dim,
-                      const params& params, const int32 array_size = 1, const bool mipmaps = true)
-            : texture(data, TTextureType, format, dim, params, array_size, mipmaps)
+        typed_texture(const std::span<const std::byte> data, const render::texture_format format, const glm::ivec3 dim,
+                      const render::texture_params& params, const bool mipmaps = true)
+            requires(TTextureType == texture_type::texture_3d)
+            : texture(data, TTextureType, format, dim, params, 1, mipmaps)
         {
         }
-        typed_texture(const std::span<const glm::u8vec4> data, const format format, const glm::ivec3 dim,
-                      const params& params, const int32 array_size = 1, const bool mipmaps = true)
-            : texture(std::as_bytes(data), TTextureType, format, dim, params, array_size, mipmaps)
+        typed_texture(const std::span<const std::byte> data, const render::texture_format format, const glm::ivec2 dim,
+                      const render::texture_params& params, const bool mipmaps = true)
+            requires(TTextureType == texture_type::texture_2d || TTextureType == texture_type::cubemap)
+            : texture(data, TTextureType, format, glm::vec3(dim, 1), params, 1, mipmaps)
         {
+        }
+        typed_texture(const std::span<const std::byte> data, const render::texture_format format, const int32 dim,
+                      const render::texture_params& params, const bool mipmaps = true)
+            requires(TTextureType == texture_type::texture_1d)
+            : texture(data, TTextureType, format, glm::vec3(dim, 1, 1), params, 1, mipmaps)
+        {
+        }
+
+        typed_texture(const std::span<const glm::u8vec4> data, const glm::ivec3 dim,
+                      const render::texture_params& params, const bool mipmaps = true)
+            requires(TTextureType == texture_type::texture_3d)
+            : texture(std::as_bytes(data), TTextureType, texture_format::rgba8, dim, params, 1, mipmaps)
+        {
+        }
+
+        typed_texture(const std::span<const glm::u8vec4> data, const glm::ivec2 dim,
+                      const render::texture_params& params, const bool mipmaps = true)
+            requires(TTextureType == texture_type::texture_2d || TTextureType == texture_type::cubemap)
+            : texture(std::as_bytes(data), TTextureType, texture_format::rgba8, glm::vec3(dim, 1), params, 1, mipmaps)
+        {
+        }
+
+        typed_texture(const std::span<const glm::u8vec4> data, const int32 dim, const render::texture_params& params,
+                      const bool mipmaps = true)
+            requires(TTextureType == texture_type::texture_1d)
+            : texture(std::as_bytes(data), TTextureType, texture_format::rgba8, glm::vec3(dim, 1, 1), params, 1,
+                      mipmaps)
+        {
+        }
+
+        typed_texture(const std::span<const std::byte> data, const render::texture_format format, const glm::ivec2 dim,
+                      const render::texture_params& params, const int32 array_size, const bool mipmaps = true)
+            requires(TTextureType == texture_type::array_2d || TTextureType == texture_type::array_cube)
+            : texture(data, TTextureType, format, glm::vec3(dim, 1), params, array_size, mipmaps)
+        {
+            check_if(array_size > 0, "Array size must be greater than 0.");
+        }
+
+        typed_texture(const std::span<const std::byte> data, const render::texture_format format, const int32 dim,
+                      const render::texture_params& params, const int32 array_size, const bool mipmaps = true)
+            requires(TTextureType == texture_type::array_1d)
+            : texture(data, TTextureType, format, glm::vec3(dim, 1, 1), params, array_size, mipmaps)
+        {
+            check_if(array_size > 0, "Array size must be greater than 0.");
+        }
+
+        typed_texture(const std::span<const glm::u8vec4> data, const glm::ivec2 dim,
+                      const render::texture_params& params, const int32 array_size, const bool mipmaps = true)
+            requires(TTextureType == texture_type::array_2d || TTextureType == texture_type::array_cube)
+            : texture(std::as_bytes(data), TTextureType, texture_format::rgba8, glm::vec3(dim, 1), params, array_size,
+                      mipmaps)
+        {
+            check_if(array_size > 0, "Array size must be greater than 0.");
+        }
+
+        typed_texture(const std::span<const glm::u8vec4> data, const int32 dim, const render::texture_params& params,
+                      const int32 array_size, const bool mipmaps = true)
+            requires(TTextureType == texture_type::array_1d)
+            : texture(std::as_bytes(data), TTextureType, texture_format::rgba8, glm::vec3(dim, 1, 1), params,
+                      array_size, mipmaps)
+        {
+            check_if(array_size > 0, "Array size must be greater than 0.");
         }
 
         typed_texture(typed_texture&& other) noexcept
@@ -183,37 +255,42 @@ namespace raoe::render::texture
         }
     };
 
-    using texture_1d = typed_texture<type::texture_1d>;
-    using texture_2d = typed_texture<type::texture_2d>;
-    using texture_3d = typed_texture<type::texture_3d>;
-    using texture_cubemap = typed_texture<type::cubemap>;
-    using texture_array_1d = typed_texture<type::array_1d>;
-    using texture_array_2d = typed_texture<type::array_2d>;
-    using texture_array_cube = typed_texture<type::array_cube>;
+    using texture_1d = typed_texture<texture_type::texture_1d>;
+    using texture_2d = typed_texture<texture_type::texture_2d>;
+    using texture_3d = typed_texture<texture_type::texture_3d>;
+    using texture_cubemap = typed_texture<texture_type::cubemap>;
+    using texture_array_1d = typed_texture<texture_type::array_1d>;
+    using texture_array_2d = typed_texture<texture_type::array_2d>;
+    using texture_array_cube = typed_texture<texture_type::array_cube>;
 
     class render_texture final : public texture
     {
         // TODO: Implement render texture
+      private:
+        // Make this public when render textures are implemented
+        explicit render_texture(const glm::ivec3 dim, const render::texture_params& params = {})
+            : texture({}, texture_type::texture_2d, texture_format::rgba8, dim, params, 1, false)
+        {
+        }
     };
 
-}
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture> = renderer_type::any_texture;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_1d> = renderer_type::texture1d;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_2d> = renderer_type::texture2d;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_3d> = renderer_type::texture3d;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_cubemap> = renderer_type::texture_cube;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_array_1d> = renderer_type::texture1d_array;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_array_2d> = renderer_type::texture2d_array;
+    template<>
+    inline constexpr auto shader_uniform_type_v<texture_array_cube> = renderer_type::texture_cube_array;
+    template<>
+    inline constexpr auto shader_uniform_type_v<render_texture> = renderer_type::texture2d;
 
-namespace raoe::render
-{
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture> = renderer_type::any_texture;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_1d> = renderer_type::texture1d;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_2d> = renderer_type::texture2d;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_3d> = renderer_type::texture3d;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_cubemap> = renderer_type::texture_cube;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_array_1d> = renderer_type::texture1d_array;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_array_2d> = renderer_type::texture2d_array;
-    template<>
-    inline constexpr auto shader_uniform_type_v<texture::texture_array_cube> = renderer_type::texture_cube_array;
 }

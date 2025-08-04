@@ -28,6 +28,9 @@ namespace raoe::render
         class shader;
     }
 
+    template<typename Range, typename TVertexData>
+    concept range_of = std::ranges::range<Range> && std::same_as<std::ranges::range_value_t<Range>, TVertexData>;
+
     class mesh_element
     {
       public:
@@ -36,12 +39,26 @@ namespace raoe::render
         template<type_described TVertexData, index_buffer_type TIndexType>
         mesh_element& set_data(const std::span<TVertexData> vertex_elements, const std::span<TIndexType> index_elements)
         {
-            return set_data(std::as_bytes(vertex_elements), renderer_type_of<TVertexData>::elements(),
+            return set_data(std::as_bytes(vertex_elements), renderer_type_of<std::remove_cv_t<TVertexData>>::elements(),
                             vertex_elements.size(), sizeof(TVertexData), std::as_bytes(index_elements),
-                            renderer_type_of<TIndexType>::elements(), index_elements.size(), sizeof(TIndexType));
+                            renderer_type_of<std::remove_cv_t<TIndexType>>::elements(), index_elements.size(),
+                            sizeof(TIndexType));
         }
 
-        // Typed set_data without an index.  Takes a span of vertex data and uses that as a mesh element.
+        template<std::ranges::range TVertexRange, std::ranges::range TIndexRange>
+            requires type_described<std::ranges::range_value_t<TVertexRange>> &&
+                     index_buffer_type<std::ranges::range_value_t<TIndexRange>>
+        mesh_element& set_data(TVertexRange&& vertex_elements, TIndexRange&& index_elements)
+        {
+            auto vertex_elements_data =
+                std::span(std::ranges::data(vertex_elements), std::ranges::size(vertex_elements));
+            auto index_elements_data = std::span(std::ranges::data(index_elements), std::ranges::size(index_elements));
+
+            return set_data(vertex_elements_data, index_elements_data);
+        }
+
+        // Typed set_data without an index.  Takes a span of vertex data and uses that as a mesh
+        // element.
         template<type_described TVertexData>
         mesh_element& set_data(const std::span<TVertexData> vertex_elements)
         {

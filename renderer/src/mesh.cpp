@@ -28,7 +28,7 @@ namespace raoe::render
                                          const std::span<const type_description> index_elements,
                                          const std::size_t index_count, const std::size_t index_size)
     {
-        raoe::check_if(!vertex_elements.empty(), "Vertex Element Type is empty");
+        check_if(!vertex_elements.empty(), "Vertex Element Type is empty");
 
         m_vertex_element_type = vertex_elements;
         m_index_element_type = index_elements;
@@ -53,7 +53,7 @@ namespace raoe::render
             return *this;
         }
 
-        raoe::check_if(is_valid(), "Mesh Element is not valid");
+        check_if(is_valid(), "Mesh Element is not valid");
 
         if(!m_vertex_buffer)
         {

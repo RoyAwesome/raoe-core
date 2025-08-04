@@ -21,13 +21,11 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 namespace raoe::render
 {
-    namespace texture
-    {
-        enum class type;
-        class texture;
-        template<type TTextureType>
-        class typed_texture;
-    }
+
+    enum class texture_type;
+    class texture;
+    template<texture_type TTextureType>
+    class typed_texture;
 
     enum class renderer_type
     {
@@ -46,6 +44,7 @@ namespace raoe::render
         mat2,
         mat3,
         mat4,
+        color,
         texture1d,
         texture2d,
         texture3d,
@@ -154,14 +153,14 @@ namespace raoe::render
         static std::span<const type_description> elements()
         {
             static constexpr std::array<const type_description, 4> ele = {
-                type_description {renderer_type::vec3, offsetof(vertex_pos_uv_color_normal, position),
-                                  sizeof(glm::vec3),                                                                        type_hint::position},
-                type_description {renderer_type::vec2, offsetof(vertex_pos_uv_color_normal, uv),       sizeof(glm::vec2),
-                                  type_hint::uv                                                                                                },
-                type_description {renderer_type::u8,   offsetof(vertex_pos_uv_color_normal, color),    sizeof(glm::u8vec4),
-                                  type_hint::color                                                                                             },
-                type_description {renderer_type::vec3, offsetof(vertex_pos_uv_color_normal, normal),   sizeof(glm::vec3),
-                                  type_hint::normal                                                                                            },
+                type_description {renderer_type::vec3,  offsetof(vertex_pos_uv_color_normal, position),
+                                  sizeof(glm::vec3),                                                                       type_hint::position},
+                type_description {renderer_type::vec2,  offsetof(vertex_pos_uv_color_normal, uv),       sizeof(glm::vec2),
+                                  type_hint::uv                                                                                               },
+                type_description {renderer_type::color, offsetof(vertex_pos_uv_color_normal, color),
+                                  sizeof(glm::u8vec4),                                                                     type_hint::color   },
+                type_description {renderer_type::vec3,  offsetof(vertex_pos_uv_color_normal, normal),   sizeof(glm::vec3),
+                                  type_hint::normal                                                                                           },
             };
             return ele;
         }
@@ -182,7 +181,7 @@ namespace raoe::render
 
     template<typename T>
     concept type_described = requires(T t) {
-        { renderer_type_of<T>::elements() } -> std::convertible_to<std::span<const type_description>>;
+        { renderer_type_of<std::remove_cv_t<T>>::elements() } -> std::convertible_to<std::span<const type_description>>;
     };
 
     template<type_described T>
@@ -202,9 +201,9 @@ namespace raoe::render
         std::is_same_v<T, int32> || std::is_same_v<T, uint32> || std::is_same_v<T, float> ||
         std::is_same_v<T, double> || std::is_same_v<T, glm::vec2> || std::is_same_v<T, glm::vec3> ||
         std::is_same_v<T, glm::vec4> || std::is_same_v<T, glm::mat2> || std::is_same_v<T, glm::mat3> ||
-        std::is_same_v<T, glm::mat4> || std::is_same_v<T, texture::texture>;
+        std::is_same_v<T, glm::mat4> || std::is_same_v<T, texture>;
     template<typename T>
-    concept shader_texture_type = std::convertible_to<T, texture::texture>;
+    concept shader_texture_type = std::convertible_to<T, texture>;
 
     template<typename T>
     inline constexpr auto shader_uniform_type_v = renderer_type::none;
@@ -239,7 +238,9 @@ namespace raoe::render
     inline constexpr auto shader_uniform_type_v<glm::mat4> = renderer_type::mat4;
 
     template<typename T>
-    concept index_buffer_type = std::is_same_v<T, uint8> || std::is_same_v<T, uint16> || std::is_same_v<T, uint32>;
+    concept index_buffer_type =
+        std::is_same_v<std::remove_cv_t<T>, uint8> || std::is_same_v<std::remove_cv_t<T>, uint16> ||
+        std::is_same_v<std::remove_cv_t<T>, uint32>;
 
     template<index_buffer_type T>
     struct renderer_type_of<T>

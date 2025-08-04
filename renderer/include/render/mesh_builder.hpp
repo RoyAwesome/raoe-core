@@ -127,7 +127,7 @@ namespace raoe::render
     class mesh_element_builder
     {
       public:
-        std::shared_ptr<mesh_element> build()
+        [[nodiscard]] std::shared_ptr<mesh_element> build() const
         {
             auto element = std::make_shared<mesh_element>();
             element->set_data(vertices, indices);

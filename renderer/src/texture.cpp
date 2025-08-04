@@ -19,139 +19,142 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "glad/glad.h"
 
-namespace raoe::render::texture
+namespace raoe::render
 {
-
-    inline bool is_array_texture(const type texture_type)
+    inline bool is_array_texture(const texture_type texture_type)
     {
-        return texture_type == type::array_1d || texture_type == type::array_2d || texture_type == type::array_cube;
+        return texture_type == texture_type::array_1d || texture_type == texture_type::array_2d ||
+               texture_type == texture_type::array_cube;
     }
 
-    inline bool has_2d(const type texture_type)
+    inline bool has_2d(const texture_type texture_type)
     {
-        return texture_type == type::texture_2d || texture_type == type::array_2d || texture_type == type::texture_3d;
+        return texture_type == texture_type::texture_2d || texture_type == texture_type::array_2d ||
+               texture_type == texture_type::texture_3d;
     }
 
-    inline std::size_t format_size(const format format)
+    inline std::size_t format_size(const texture_format format)
     {
         switch(format)
         {
-            case format::stencil8:
-            case format::r8: return 1;
-            case format::rg8:
-            case format::r16:
-            case format::r16f: return 2;
-            case format::rgb8: return 3;
-            case format::rgba8:
-            case format::r32f:
-            case format::rg16:
-            case format::rg16f: return 4;
-            case format::rgb16:
-            case format::rgb16f: return 6;
-            case format::rgba16:
-            case format::rgba16f:
-            case format::rg32f: return 8;
-            case format::rgb32f: return 12;
-            case format::rgba32f: return 16;
+            case texture_format::stencil8:
+            case texture_format::r8: return 1;
+            case texture_format::rg8:
+            case texture_format::r16:
+            case texture_format::r16f: return 2;
+            case texture_format::rgb8: return 3;
+            case texture_format::rgba8:
+            case texture_format::r32f:
+            case texture_format::rg16:
+            case texture_format::rg16f: return 4;
+            case texture_format::rgb16:
+            case texture_format::rgb16f: return 6;
+            case texture_format::rgba16:
+            case texture_format::rgba16f:
+            case texture_format::rg32f: return 8;
+            case texture_format::rgb32f: return 12;
+            case texture_format::rgba32f: return 16;
             default: panic("Invalid format.");
         }
     }
 
-    inline GLenum gl_sized_format(const format format)
+    inline GLenum gl_sized_format(const texture_format format)
     {
         switch(format)
         {
-            case format::r8: return GL_R8;
-            case format::r16: return GL_R16;
-            case format::r16f: return GL_R16F;
-            case format::r32f: return GL_R32F;
-            case format::rg8: return GL_RG8;
-            case format::rg16: return GL_RG16;
-            case format::rg16f: return GL_RG16F;
-            case format::rg32f: return GL_RG32F;
-            case format::rgb8: return GL_RGB8;
-            case format::rgb16: return GL_RGB16;
-            case format::rgb16f: return GL_RGB16F;
-            case format::rgb32f: return GL_RGB32F;
-            case format::rgba8: return GL_RGBA8;
-            case format::rgba16: return GL_RGBA16;
-            case format::rgba16f: return GL_RGBA16F;
-            case format::rgba32f: return GL_RGBA32F;
-            case format::stencil8: return GL_STENCIL_INDEX8;
+            case texture_format::r8: return GL_R8;
+            case texture_format::r16: return GL_R16;
+            case texture_format::r16f: return GL_R16F;
+            case texture_format::r32f: return GL_R32F;
+            case texture_format::rg8: return GL_RG8;
+            case texture_format::rg16: return GL_RG16;
+            case texture_format::rg16f: return GL_RG16F;
+            case texture_format::rg32f: return GL_RG32F;
+            case texture_format::rgb8: return GL_RGB8;
+            case texture_format::rgb16: return GL_RGB16;
+            case texture_format::rgb16f: return GL_RGB16F;
+            case texture_format::rgb32f: return GL_RGB32F;
+            case texture_format::rgba8: return GL_RGBA8;
+            case texture_format::rgba16: return GL_RGBA16;
+            case texture_format::rgba16f: return GL_RGBA16F;
+            case texture_format::rgba32f: return GL_RGBA32F;
+            case texture_format::stencil8: return GL_STENCIL_INDEX8;
             default: panic("Invalid format.");
         }
     }
 
-    inline GLenum gl_base_format(const format format)
+    inline GLenum gl_base_format(const texture_format format)
     {
         switch(format)
         {
-            case format::r8:
-            case format::r16:
-            case format::r16f:
-            case format::r32f: return GL_RED;
-            case format::rg8:
-            case format::rg16:
-            case format::rg16f:
-            case format::rg32f: return GL_RG;
-            case format::rgb8:
-            case format::rgb16:
-            case format::rgb16f:
-            case format::rgb32f: return GL_RGB;
-            case format::rgba8:
-            case format::rgba16:
-            case format::rgba16f:
-            case format::rgba32f: return GL_RGBA;
-            case format::stencil8: return GL_STENCIL_INDEX;
+            case texture_format::r8:
+            case texture_format::r16:
+            case texture_format::r16f:
+            case texture_format::r32f: return GL_RED;
+            case texture_format::rg8:
+            case texture_format::rg16:
+            case texture_format::rg16f:
+            case texture_format::rg32f: return GL_RG;
+            case texture_format::rgb8:
+            case texture_format::rgb16:
+            case texture_format::rgb16f:
+            case texture_format::rgb32f: return GL_RGB;
+            case texture_format::rgba8:
+            case texture_format::rgba16:
+            case texture_format::rgba16f:
+            case texture_format::rgba32f: return GL_RGBA;
+            case texture_format::stencil8: return GL_STENCIL_INDEX;
             default: panic("Invalid format.");
         }
     }
 
-    inline GLenum gl_texture_type(const type texture_type)
+    inline GLenum gl_texture_type(const texture_type texture_type)
     {
         switch(texture_type)
         {
-            case type::array_1d: return GL_TEXTURE_1D_ARRAY;
-            case type::array_2d: return GL_TEXTURE_2D_ARRAY;
-            case type::array_cube: return GL_TEXTURE_CUBE_MAP_ARRAY;
-            case type::cubemap: return GL_TEXTURE_CUBE_MAP;
-            case type::texture_1d: return GL_TEXTURE_1D;
-            case type::texture_2d: return GL_TEXTURE_2D;
-            case type::texture_3d: return GL_TEXTURE_3D;
+            case texture_type::array_1d: return GL_TEXTURE_1D_ARRAY;
+            case texture_type::array_2d: return GL_TEXTURE_2D_ARRAY;
+            case texture_type::array_cube: return GL_TEXTURE_CUBE_MAP_ARRAY;
+            case texture_type::cubemap: return GL_TEXTURE_CUBE_MAP;
+            case texture_type::texture_1d: return GL_TEXTURE_1D;
+            case texture_type::texture_2d: return GL_TEXTURE_2D;
+            case texture_type::texture_3d: return GL_TEXTURE_3D;
             default: panic("Invalid texture type.");
         }
     }
 
-    inline GLint gl_wrap(const wrap wrap)
+    inline GLint gl_wrap(const texture_wrap wrap)
     {
         switch(wrap)
         {
-            case wrap::clamp_to_edge: return GL_CLAMP_TO_EDGE;
-            case wrap::clamp_to_border: return GL_CLAMP_TO_BORDER;
-            case wrap::repeat: return GL_REPEAT;
-            case wrap::mirrored_repeat: return GL_MIRRORED_REPEAT;
+            case texture_wrap::clamp_to_edge: return GL_CLAMP_TO_EDGE;
+            case texture_wrap::clamp_to_border: return GL_CLAMP_TO_BORDER;
+            case texture_wrap::repeat: return GL_REPEAT;
+            case texture_wrap::mirrored_repeat: return GL_MIRRORED_REPEAT;
         }
         panic("Invalid wrap mode.");
     }
 
-    inline GLint gl_filter(const filter filter)
+    inline GLint gl_filter(const texture_filter filter)
     {
         switch(filter)
         {
-            case filter::nearest: return GL_NEAREST;
-            case filter::linear: return GL_LINEAR;
+            case texture_filter::nearest: return GL_NEAREST;
+            case texture_filter::linear: return GL_LINEAR;
         }
         panic("Invalid filter mode.");
     }
 
-    texture::texture(const std::span<const std::byte> data, const type texture_type, const format format,
-                     const glm::ivec3 dim, const params& params, int32 array_size, const bool mipmaps)
+    texture::texture(const std::span<const std::byte> data, const render::texture_type type,
+                     const render::texture_format format, const glm::ivec3 dim, const render::texture_params& params,
+                     const int32 array_size, const bool mipmaps)
         : m_data(data.begin(), data.end())
-        , m_array_size(is_array_texture(texture_type) ? array_size : 1)
+        , m_format(format)
+        , m_array_size(is_array_texture(type) ? array_size : 1)
         , m_mipmaps(mipmaps)
         , m_dim(dim)
         , m_params(params)
-        , m_texture_type(texture_type)
+        , m_texture_type(type)
     {
         // Validate the texture data
         check_if(array_size < GL_MAX_ARRAY_TEXTURE_LAYERS, "Array size exceeds maximum array texture layers.");
@@ -163,10 +166,6 @@ namespace raoe::render::texture
                  "Texture dimensions exceed maximum texture size.");
     }
 
-    texture::~texture()
-    {
-        free_gpu_data();
-    }
     void texture::upload_to_gpu()
     {
         check_if(has_cpu_data(), "Cannot upload texture to GPU without CPU data.");
@@ -181,7 +180,7 @@ namespace raoe::render::texture
         {
             glTextureParameteri(m_native_id, GL_TEXTURE_WRAP_T, gl_wrap(m_params.wrap_v));
         }
-        if(m_texture_type == type::texture_3d)
+        if(m_texture_type == texture_type::texture_3d)
         {
             glTextureParameteri(m_native_id, GL_TEXTURE_WRAP_R, gl_wrap(m_params.wrap_w));
         }
@@ -189,7 +188,7 @@ namespace raoe::render::texture
         glTextureParameteri(m_native_id, GL_TEXTURE_MAG_FILTER, gl_filter(m_params.filter_mag));
 
         // Set the texture size
-        if(m_texture_type == type::texture_1d || m_texture_type == type::array_1d)
+        if(m_texture_type == texture_type::texture_1d || m_texture_type == texture_type::array_1d)
         {
             if(m_array_size > 1)
             {
@@ -204,8 +203,8 @@ namespace raoe::render::texture
                                     m_data.data());
             }
         }
-        else if(m_texture_type == type::texture_2d || m_texture_type == type::array_2d ||
-                m_texture_type == type::cubemap)
+        else if(m_texture_type == texture_type::texture_2d || m_texture_type == texture_type::array_2d ||
+                m_texture_type == texture_type::cubemap)
         {
             if(m_array_size > 1)
             {
@@ -220,7 +219,7 @@ namespace raoe::render::texture
                                     m_data.data());
             }
         }
-        else if(m_texture_type == type::texture_3d)
+        else if(m_texture_type == texture_type::texture_3d)
         {
             glTextureStorage3D(m_native_id, 1, gl_sized_format(m_format), m_dim.x, m_dim.y, m_dim.z);
             glTextureSubImage3D(m_native_id, 0, 0, 0, 0, m_dim.x, m_dim.y, m_dim.z, gl_base_format(m_format),
@@ -244,5 +243,4 @@ namespace raoe::render::texture
             m_native_id = 0;
         }
     }
-
 }

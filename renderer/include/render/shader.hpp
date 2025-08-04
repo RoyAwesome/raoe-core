@@ -148,8 +148,8 @@ namespace raoe::render::shader
             return *this;
         }
 
-        template<texture::type TTextureType>
-        uniform& operator=(const texture::typed_texture<TTextureType>& value)
+        template<texture_type TTextureType>
+        uniform& operator=(const typed_texture<TTextureType>& value)
         {
             if(m_type == renderer_type::none)
             {
@@ -173,7 +173,7 @@ namespace raoe::render::shader
         {
         }
         void set_uniform(std::span<const std::byte> data, int32 element_count = 1) const;
-        void set_uniform(const texture::texture& texture) const;
+        void set_uniform(const raoe::render::texture& texture) const;
 
         renderer_type m_type = renderer_type::none;
         uint8 m_texture_unit = 0;
@@ -223,6 +223,9 @@ namespace raoe::render::shader
 
         [[nodiscard]] std::ranges::range auto uniforms() { return m_uniforms | std::views::values; }
         [[nodiscard]] std::ranges::random_access_range auto inputs() const { return m_inputs; }
+
+        // Binds the shader for use.
+        void use() const;
 
       private:
         explicit shader(const uint32 id, std::string debug_name)
@@ -466,20 +469,20 @@ namespace raoe::render::shader
 
 RAOE_CORE_DECLARE_FORMATTER(
     raoe::render::shader::shader_type, switch(value) {
-    case raoe::render::shader::shader_type::vertex: return format_to(ctx.out(), "shader::vertex");
-    case raoe::render::shader::shader_type::fragment: return format_to(ctx.out(), "shader::fragment");
-    case raoe::render::shader::shader_type::geometry: return format_to(ctx.out(), "shader::geometry");
-    case raoe::render::shader::shader_type::tesselation_control:
-        return format_to(ctx.out(), "shader::tesselation_control");
-    case raoe::render::shader::shader_type::tesselation_evaluation:
-        return format_to(ctx.out(), "shader::tesselation_evaluation");
-    case raoe::render::shader::shader_type::mesh: return format_to(ctx.out(), "shader::mesh");
-    case raoe::render::shader::shader_type::compute: return format_to(ctx.out(), "shader::compute");
-    default: return format_to(ctx.out(), "shader::unknown");
+        case raoe::render::shader::shader_type::vertex: return format_to(ctx.out(), "shader::vertex");
+        case raoe::render::shader::shader_type::fragment: return format_to(ctx.out(), "shader::fragment");
+        case raoe::render::shader::shader_type::geometry: return format_to(ctx.out(), "shader::geometry");
+        case raoe::render::shader::shader_type::tesselation_control:
+            return format_to(ctx.out(), "shader::tesselation_control");
+        case raoe::render::shader::shader_type::tesselation_evaluation:
+            return format_to(ctx.out(), "shader::tesselation_evaluation");
+        case raoe::render::shader::shader_type::mesh: return format_to(ctx.out(), "shader::mesh");
+        case raoe::render::shader::shader_type::compute: return format_to(ctx.out(), "shader::compute");
+        default: return format_to(ctx.out(), "shader::unknown");
     })
 RAOE_CORE_DECLARE_FORMATTER(
     raoe::render::shader::shader_lang, switch(value) {
-    case raoe::render::shader::shader_lang::glsl: return format_to(ctx.out(), "lang::glsl");
-    case raoe::render::shader::shader_lang::spirv: return format_to(ctx.out(), "lang::spirv");
-    default: return format_to(ctx.out(), "lang::unknown");
+        case raoe::render::shader::shader_lang::glsl: return format_to(ctx.out(), "lang::glsl");
+        case raoe::render::shader::shader_lang::spirv: return format_to(ctx.out(), "lang::spirv");
+        default: return format_to(ctx.out(), "lang::unknown");
     })

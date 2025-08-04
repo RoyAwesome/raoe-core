@@ -23,6 +23,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 namespace raoe::render
 {
+    class mesh_element;
     namespace shader
     {
         class shader;
@@ -61,12 +62,13 @@ namespace raoe::render
     struct render_assets
     {
         std::shared_ptr<shader::shader> error_shader;
-        std::shared_ptr<texture::texture_2d> error_texture;
+        std::shared_ptr<texture_2d> error_texture;
     };
 
     render_assets init_renderer();
 
     void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform,
                      const render_assets& render_assets);
-    void clear_surface(const glm::u8vec4 color);
+    void render_mesh_element(mesh_element& mesh_element);
+    void clear_surface(glm::u8vec4 color);
 }

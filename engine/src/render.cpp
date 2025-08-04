@@ -17,6 +17,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/render.hpp"
 #include "render/render.hpp"
 
+#include "render/immediate.hpp"
+
 struct scoped_world_defer_suspend
 {
     explicit scoped_world_defer_suspend(flecs::world_t* world)
@@ -109,6 +111,15 @@ void draw_frame(flecs::iter itr)
     }
 }
 
+void tick_start(flecs::iter itr)
+{
+    raoe::render::immediate::begin_immediate_batch();
+}
+
+void post_draw(flecs::iter itr)
+{
+    raoe::render::immediate::draw_immediate_batch();
+}
 raoe::engine::render_module::render_module(const flecs::world& world)
 {
     world.component<render::render_transform>();
@@ -127,4 +138,7 @@ raoe::engine::render_module::render_module(const flecs::world& world)
     world.system().kind(entities::render_tick::render_begin).run(prepare_frame);
 
     world.system<const render_info, const render::render_transform>().kind(entities::render_tick::draw).run(draw_frame);
+
+    world.system().kind(flecs::PreFrame).run(tick_start);
+    world.system().kind(entities::render_tick::post_draw).run(post_draw);
 }

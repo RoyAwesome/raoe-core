@@ -26,6 +26,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "glm/ext.hpp"
 #include "spdlog/spdlog.h"
 #include <format>
+
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec2, return format_to(ctx.out(), "({}, {})", value.x, value.y);)
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec3, return format_to(ctx.out(), "({}, {}, {})", value.x, value.y, value.z);)
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec4,
