@@ -82,13 +82,7 @@ namespace raoe::render
     class texture
     {
       public:
-        ~texture()
-        {
-            if(has_gpu_data())
-            {
-                free_gpu_data();
-            }
-        }
+        ~texture() { free_gpu_data(); }
 
         [[nodiscard]] uint32 native_id() const { return m_native_id; }
         [[nodiscard]] render::texture_format texture_format() const { return m_format; }

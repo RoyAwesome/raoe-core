@@ -60,6 +60,19 @@ namespace raoe::render
         count,
     };
 
+    constexpr bool is_texture_type(const renderer_type type)
+    {
+        return type == renderer_type::texture1d || type == renderer_type::texture2d ||
+               type == renderer_type::texture3d || type == renderer_type::texture_cube ||
+               type == renderer_type::texture1d_array || type == renderer_type::texture2d_array ||
+               type == renderer_type::texture_cube_array || type == renderer_type::any_texture;
+    }
+
+    constexpr bool is_valid_renderer_type(const renderer_type type)
+    {
+        return type != renderer_type::none && type != renderer_type::custom && type != renderer_type::count;
+    }
+
     enum class type_hint : uint8
     {
         none = 0,
@@ -185,25 +198,7 @@ namespace raoe::render
     };
 
     template<type_described T>
-    struct renderer_type_hash
-    {
-        static constexpr int32 value = elements_hash(renderer_type_of<T>::elements());
-    };
-
-    template<renderer_type T>
-    concept is_uniform_texture =
-        T == renderer_type::texture1d || T == renderer_type::texture2d || T == renderer_type::texture3d ||
-        T == renderer_type::texture_cube || T == renderer_type::texture1d_array ||
-        T == renderer_type::texture2d_array || T == renderer_type::texture_cube_array;
-
-    template<typename T>
-    concept shader_uniform_type =
-        std::is_same_v<T, int32> || std::is_same_v<T, uint32> || std::is_same_v<T, float> ||
-        std::is_same_v<T, double> || std::is_same_v<T, glm::vec2> || std::is_same_v<T, glm::vec3> ||
-        std::is_same_v<T, glm::vec4> || std::is_same_v<T, glm::mat2> || std::is_same_v<T, glm::mat3> ||
-        std::is_same_v<T, glm::mat4> || std::is_same_v<T, texture>;
-    template<typename T>
-    concept shader_texture_type = std::convertible_to<T, texture>;
+    inline constexpr auto renderer_type_hash_v = elements_hash(renderer_type_of<T>::elements());
 
     template<typename T>
     inline constexpr auto shader_uniform_type_v = renderer_type::none;
@@ -274,6 +269,7 @@ RAOE_CORE_DECLARE_FORMATTER(
         case raoe::render::renderer_type::mat2: return format_to(ctx.out(), "renderer_type::mat2");
         case raoe::render::renderer_type::mat3: return format_to(ctx.out(), "renderer_type::mat3");
         case raoe::render::renderer_type::mat4: return format_to(ctx.out(), "renderer_type::mat4");
+        case raoe::render::renderer_type::color: return format_to(ctx.out(), "renderer_type::color");
         case raoe::render::renderer_type::texture1d: return format_to(ctx.out(), "renderer_type::texture1d");
         case raoe::render::renderer_type::texture2d: return format_to(ctx.out(), "renderer_type::texture2d");
         case raoe::render::renderer_type::texture3d: return format_to(ctx.out(), "renderer_type::texture3d");

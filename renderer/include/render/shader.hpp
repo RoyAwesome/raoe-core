@@ -124,38 +124,22 @@ namespace raoe::render::shader
     {
         friend class shader;
 
-        template<shader_uniform_type T>
+        template<typename T>
+            requires(is_valid_renderer_type(shader_uniform_type_v<T>) && !is_texture_type(shader_uniform_type_v<T>))
         uniform& operator=(const T& value)
         {
-            if(m_type == renderer_type::none)
-            {
-                panic("Cannot assign to an uninitialized uniform");
-            }
+            check_if(m_type == renderer_type::none, "Uniform is not initialized.  Cannot assign value to it");
+            check_if(m_type != shader_uniform_type_v<T>, "Uniform type mismatch.  Expecting {}, got {}", m_type,
+                     shader_uniform_type_v<T>);
 
-            if constexpr(shader_texture_type<T>)
-            {
-                static_assert(false, "Textures not implemented yet");
-            }
-            else
-            {
-                if(m_type != shader_uniform_type_v<T>)
-                {
-                    raoe::panic("Uniform type mismatch.  Expecting {}, got {}", m_type, shader_uniform_type_v<T>);
-                }
-                set_uniform(raoe::as_bytes(value));
-            }
+            set_uniform(raoe::as_bytes(value));
 
             return *this;
         }
 
-        template<texture_type TTextureType>
-        uniform& operator=(const typed_texture<TTextureType>& value)
+        uniform& operator=(const texture& value)
         {
-            if(m_type == renderer_type::none)
-            {
-                panic("Cannot assign to an uninitialized uniform");
-            }
-
+            check_if(m_type == renderer_type::none, "Uniform is not initialized.  Cannot assign value to it");
             set_uniform(value);
 
             return *this;
@@ -173,7 +157,7 @@ namespace raoe::render::shader
         {
         }
         void set_uniform(std::span<const std::byte> data, int32 element_count = 1) const;
-        void set_uniform(const raoe::render::texture& texture) const;
+        void set_uniform(const texture& texture) const;
 
         renderer_type m_type = renderer_type::none;
         uint8 m_texture_unit = 0;
@@ -350,7 +334,7 @@ namespace raoe::render::shader
             return *this;
         }
 
-        std::shared_ptr<shader> build_sync()
+        [[nodiscard]] std::shared_ptr<shader> build_sync() const
         {
             check_can_build();
 
@@ -371,7 +355,7 @@ namespace raoe::render::shader
                 static_assert(false, "spirv not implemented yet");
             }
 
-            return shader::make_shared(_internal::create_program(shader_ids), std::move(m_debug_name));
+            return shader::make_shared(_internal::create_program(shader_ids), m_debug_name);
         }
 
       private:

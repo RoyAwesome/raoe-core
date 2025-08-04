@@ -248,10 +248,7 @@ namespace raoe::render::shader
 
     void uniform::set_uniform(const std::span<const std::byte> data, const int32 element_count) const
     {
-        if(element_count < 1)
-        {
-            panic("Uniform count must be greater than 0");
-        }
+        check_if(element_count < 0, "Uniform count ({}) must be greater than 0", element_count);
 
         switch(m_type)
         {

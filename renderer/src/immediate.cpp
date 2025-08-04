@@ -99,6 +99,8 @@ struct immediate_render_assets
 
     raoe::render::camera immediate_2d_camera = raoe::render::camera(
         glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f)); // Default orthographic camera for 2D rendering
+
+    raoe::render::shader::shader immediate_2d_shader;
 };
 
 static immediate_render_assets immediate_render_assets;
