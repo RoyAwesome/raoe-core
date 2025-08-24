@@ -18,6 +18,9 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "render/immediate.hpp"
 
 #include "render/mesh_builder.hpp"
+
+#include <concepts>
+#include <vector>
 struct render_batch
 {
     render_batch& add_quad(const glm::vec2 min, const glm::vec2 max, const glm::vec2 uv_min, const glm::vec2 uv_max,
@@ -100,7 +103,7 @@ struct immediate_render_assets
     raoe::render::camera immediate_2d_camera = raoe::render::camera(
         glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f)); // Default orthographic camera for 2D rendering
 
-    raoe::render::shader::shader immediate_2d_shader;
+    std::shared_ptr<raoe::render::shader::shader> immediate_2d_shader;
 };
 
 static immediate_render_assets immediate_render_assets;
@@ -123,12 +126,21 @@ void raoe::render::draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect
     });
 }
 
+std::shared_ptr<raoe::render::shader::shader> create_immediate_2d_shader()
+{
+
+    return {};
+}
+
 void raoe::render::immediate::begin_immediate_batch()
 {
     if(!immediate_render_assets.white_texture.has_gpu_data())
     {
         immediate_render_assets.white_texture.upload_to_gpu();
         immediate_render_assets.white_texture.free_cpu_data();
+    }
+    if(!immediate_render_assets.immediate_2d_shader)
+    {
     }
 
     // Reset the immediate data for a new batch

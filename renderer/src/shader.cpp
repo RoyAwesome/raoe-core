@@ -19,6 +19,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "render_private.hpp"
 #include <iterator>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 #include "glad/glad.h"
 
@@ -299,4 +301,166 @@ namespace raoe::render::shader
         glBindTextureUnit(m_texture_unit, texture.native_id());
     }
 
+}
+
+std::string preprocess_r(std::string source, const raoe::render::shader::glsl::file_load_callback_t& load_file_callback,
+                         std::unordered_set<std::string>& included_files, uint32 original_file_index = 0)
+{
+
+    std::size_t pos = 0;
+    int32 original_file_line = 1;
+    auto peek = [&source, &pos]() -> char {
+        if(pos + 1 < source.size())
+        {
+            return source[pos];
+        }
+        return '\0';
+    };
+    auto get = [&source, &pos]() -> char {
+        if(pos < source.size())
+        {
+            return source[pos++];
+        }
+        return '\0';
+    };
+    auto has_more = [&source, &pos]() -> bool { return pos < source.size(); };
+    // find all elements that start with #
+    while(has_more())
+    {
+        const char c = get();
+        if(c == '\n')
+        {
+            original_file_line++;
+        }
+        if(c == '#')
+        {
+            if(const char next_char = peek(); next_char == 'i') // Might be 'include'
+            {
+                const std::size_t start_pos = pos - 1; // get the start pos of the #
+                // read the word 'include'
+                std::string include_word;
+                include_word.resize(7);
+                for(int i = 0; i < 7; i++)
+                {
+                    include_word[i] = get();
+                }
+                if(include_word == "include")
+                {
+                    // seek forward until we find the first " or ' or <
+                    char start_char = get();
+                    while(has_more() && start_char != '\"' && start_char != '<' && start_char != '\'')
+                    {
+                        start_char = get();
+                    }
+                    // read chars until we find the end char
+                    std::string include_path;
+                    include_path.reserve(255);
+                    // read until we find the matching end char
+                    while(has_more() && peek() != start_char)
+                    {
+                        include_path += get();
+                    }
+                    include_path.shrink_to_fit();
+                    // eat the end char
+                    get();
+                    const std::size_t end_pos = pos; // get the end pos.
+                    // trim whitespace from the include path
+                    raoe::string::trim(include_path);
+                    std::string file_contents = load_file_callback(include_path);
+
+                    // check to see if we have a #pragma once in the file
+                    if(file_contents.contains("#pragma once"))
+                    {
+                        if(included_files.contains(include_path))
+                        {
+                            // remove the include line, replace it with nothing
+                            source.replace(start_pos, end_pos - start_pos, "");
+                            pos = start_pos; // move the pos to the start pos + 1
+                            continue;
+                        }
+                    }
+                    // Always add the included files even if they dont have a #pragma once, as we use the count later
+                    // for file counting
+                    included_files.insert(include_path);
+
+                    // remove the #pragma once directive if they exists
+                    // find any line that contains #pragma once and remove the entire line
+                    std::size_t pragma_pos = file_contents.find("#pragma once");
+                    while(pragma_pos != std::string::npos)
+                    {
+                        // find the start of the line
+                        std::size_t line_start = file_contents.rfind('\n', pragma_pos);
+                        if(line_start == std::string::npos)
+                        {
+                            line_start = 0;
+                        }
+                        else
+                        {
+                            line_start++; // move to the next char after the \n
+                        }
+                        // find the end of the line
+                        std::size_t line_end = file_contents.find('\n', pragma_pos);
+                        if(line_end == std::string::npos)
+                        {
+                            line_end = file_contents.size();
+                        }
+                        else
+                        {
+                            line_end++; // move to the next char after the \n
+                        }
+                        file_contents.erase(line_start, line_end - line_start);
+                        pragma_pos = file_contents.find("#pragma once", line_start);
+                    }
+
+                    // add the #line directive
+                    {
+                        // Find the #version directive and insert after the line after it
+                        uint32 line = 0;
+                        uint64 version_pos = file_contents.find("#version");
+                        if(version_pos != std::string::npos)
+                        {
+                            // count the number of lines before the #version directive
+                            line = std::count(file_contents.begin(),
+                                              file_contents.begin() + static_cast<int64>(version_pos), '\n') +
+                                   1;
+                            version_pos = file_contents.find('\n', version_pos) + 1;
+                            if(version_pos == std::string::npos)
+                            {
+                                file_contents += '\n';
+                                version_pos += file_contents.find('\n', version_pos) + 1;
+                            }
+                        }
+                        else
+                        {
+                            version_pos = 0;
+                        }
+                        std::string line_directive = std::format("#line {} {}\n", line + 1, included_files.size());
+                        // insert the line directive after the #version directive
+                        file_contents.insert(version_pos, line_directive);
+                        if(!file_contents.ends_with('\n'))
+                        {
+                            file_contents.push_back('\n');
+                        }
+                    }
+                    // recursively preprocess the included file
+                    file_contents = preprocess_r(std::move(file_contents), load_file_callback, included_files,
+                                                 included_files.size());
+
+                    std::string line_directive =
+                        std::format("#line {} {}", original_file_line + 1, original_file_index);
+                    // and replace the include statement with the file contents
+                    source.replace(start_pos, end_pos - start_pos, file_contents + line_directive);
+                    pos = start_pos + file_contents.size() + line_directive.size();
+                }
+            }
+        }
+    }
+
+    return source;
+}
+
+std::string raoe::render::shader::glsl::preprocess(std::string source, const file_load_callback_t& load_file_callback)
+{
+    std::unordered_set<std::string> included_files;
+    return preprocess_r(std::move(source), load_file_callback, included_files);
 }

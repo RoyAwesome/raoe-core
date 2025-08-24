@@ -16,6 +16,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #pragma once
 
+#include <functional>
 #include <ranges>
 #include <span>
 #include <string_view>
@@ -51,6 +52,11 @@ RAOE_CORE_FLAGS_ENUM(raoe::render::shader::build_flags);
 
 namespace raoe::render::shader
 {
+    namespace glsl
+    {
+        using file_load_callback_t = std::function<std::string(const std::string&)>;
+        std::string preprocess(std::string source, const file_load_callback_t& load_file_callback);
+    }
 
     enum class shader_type
     {
@@ -115,6 +121,15 @@ namespace raoe::render::shader
         [[nodiscard]] static shader_type type() { return TType; }
         [[nodiscard]] std::span<const std::byte> source_bytes() const { return m_shader_source; }
         [[nodiscard]] bool valid() const { return !m_shader_source.empty(); }
+
+        void preprocess(const glsl::file_load_callback_t& load_file_callback)
+            requires(TLang == shader_lang::glsl)
+        {
+            const std::string src_str(reinterpret_cast<const char*>(m_shader_source.data()), m_shader_source.size());
+            const std::string preprocessed = glsl::preprocess(src_str, load_file_callback);
+            m_shader_source.clear();
+            stream::read_stream_into(std::back_inserter(m_shader_source), preprocessed);
+        }
 
       private:
         std::vector<std::byte> m_shader_source;
@@ -188,6 +203,7 @@ namespace raoe::render::shader
     class shader
     {
       public:
+        friend class material;
         shader() = default;
 
         shader(const shader&) = default;
@@ -243,6 +259,12 @@ namespace raoe::render::shader
         explicit basic_builder(const std::string_view name)
             : m_debug_name(name)
         {
+        }
+
+        [[nodiscard]] basic_builder& with_file_loader(glsl::file_load_callback_t loader)
+        {
+            m_load_file_callback = std::move(loader);
+            return *this;
         }
 
         [[nodiscard]] basic_builder& add_module(source<TLang, shader_type::vertex> vertex_shader,
@@ -306,6 +328,10 @@ namespace raoe::render::shader
             check_can_attach_module(from_type(TType));
             stream::read_stream_into(std::back_inserter(std::get<underlying(TType)>(m_sources).m_shader_source),
                                      stream);
+            if constexpr(TLang == shader_lang::glsl)
+            {
+                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback);
+            }
 
             m_build_flags |= from_type(TType);
 
@@ -316,8 +342,13 @@ namespace raoe::render::shader
         {
             // check if we can build this shader type
             check_can_attach_module(from_type(TType));
+
             stream::read_stream_into(std::back_inserter(std::get<underlying(TType)>(m_sources).m_shader_source),
                                      source_text);
+            if constexpr(TLang == shader_lang::glsl)
+            {
+                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback);
+            }
 
             m_build_flags |= from_type(TType);
 
@@ -445,10 +476,72 @@ namespace raoe::render::shader
 
         build_flags m_build_flags = build_flags::none;
         std::string m_debug_name;
+        glsl::file_load_callback_t m_load_file_callback;
     };
 
     using glsl_builder = basic_builder<shader_lang::glsl>;
     using spirv_builder = basic_builder<shader_lang::spirv>;
+
+    class material
+    {
+      public:
+        struct setter
+        {
+          private:
+            material& m_this;
+            uint32 m_location = 0;
+
+          public:
+            explicit setter(material& m_this, const uint32 location = 0)
+                : m_this(m_this)
+                , m_location(location)
+            {
+                check_if(location > 0, "Cannot set uniform for material without a valid location");
+            }
+            template<typename T>
+                requires(is_valid_renderer_type(shader_uniform_type_v<T>) && !is_texture_type(shader_uniform_type_v<T>))
+            setter& operator=(T&& value)
+            {
+                m_this.set_uniform(value);
+                return *this;
+            }
+        };
+        friend struct setter;
+
+        explicit material(std::shared_ptr<shader> shader)
+            : m_shader(std::move(shader))
+        {
+            check_if(m_shader != nullptr, "Material shader cannot be null");
+        }
+
+        setter operator[](const std::string_view name) { return setter {*this, get_location_for_name(name)}; }
+        setter operator[](const uint32 location) { return setter {*this, location}; }
+
+      private:
+        uint32 get_location_for_name(const std::string_view name) const
+        {
+            const auto it = m_shader->m_uniform_names.find(std::string(name));
+            if(it == m_shader->m_uniform_names.end())
+            {
+                return 0;
+            }
+            return it->second;
+        }
+
+        template<typename T>
+            requires(is_valid_renderer_type(shader_uniform_type_v<T>) && !is_texture_type(shader_uniform_type_v<T>))
+        void set_uniform(const int32 location, T&& value)
+        {
+            shader_uniform_variant variant = std::forward<T>(value);
+            m_uniforms.insert_or_assign(location, variant);
+        }
+        std::shared_ptr<shader> m_shader;
+        using shader_uniform_variant =
+            std::variant<std::monostate, std::shared_ptr<texture>, glm::vec2, glm::vec3, glm::vec4, glm::u8vec4, uint8,
+                         int8, uint16, int16, uint32, int32, float, double>;
+        std::unordered_map<uint32, shader_uniform_variant> m_uniforms;
+    };
+
 }
 
 RAOE_CORE_DECLARE_FORMATTER(

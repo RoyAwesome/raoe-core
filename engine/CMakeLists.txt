@@ -7,6 +7,8 @@ raoe_add_module(
         INCLUDE_DIRECTORIES
         PUBLIC
         "include"
+        PRIVATE
+        "src"
         CPP_SOURCE_FILES
         "src/engine.cpp"
         "src/render.cpp"

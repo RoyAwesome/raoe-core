@@ -1,0 +1,15 @@
+module_name = "core"
+author = "Garrett"
+version = 1 #integer version, increment this when the module is updated.
+description = "Core game assets for the game engine."
+
+[dependencies]
+
+
+# list of scripts to be loaded on module startup
+[script]
+init = "script/init.lua" # script loaded on module startup, when the game is started, and the module is mounted
+game = "script/game.lua" # script loaded when the game is loaded, when the player starts a new game or loads a saved game
+editor = "script/editor.lua" # script loaded when the game is launched in editor mode, and after the module is mounted
+
+
