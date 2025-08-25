@@ -95,10 +95,7 @@ macro(raoe_add_module)
                 ${PROJECT_NAME}
                 ${raoe_add_module_DEPENDENCIES}
         )
-        set_target_properties(${PROJECT_NAME} PROPERTIES
-                              PACK_NAMES ""
-                              ASSET_PACKS ""
-        )
+        set_target_properties(${PROJECT_NAME} PROPERTIES PACK_INFO "")
     endmacro()
 
     if (raoe_add_module_HEADERONLY)
@@ -149,34 +146,71 @@ macro(raoe_add_module)
         )
 
         if (DEFINED raoe_add_module_PACK_DIRECTORY)
+            set(output_pack_dir "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}")
+            # remove the pack directory to clean it up
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                               COMMAND ${CMAKE_COMMAND} -E remove_directory "${output_pack_dir}"
+                               COMMENT "Cleaning up pack directory ${output_pack_dir}"
+                               VERBATIM
+            )
             #collect all the dependencies of this module, so that we can copy their asset packs to the output directory
             raoe_recursively_get_dependencies("${raoe_add_module_DEPENDENCIES}" raoe_add_module_ALL_DEPENDENCIES)
-            message(STATUS "ALL_DEPENDENCIES: ${raoe_add_module_ALL_DEPENDENCIES}")
             # go through each of the dependencies and append their asset directories to a list
             if (DEFINED raoe_add_module_ZIP_ASSET_PACKS)
                 list(APPEND raoe_add_module_ALL_PACK_DIRECTORIES ${raoe_add_module_ZIP_ASSET_PACKS})
             endif ()
             foreach (dep IN ITEMS ${raoe_add_module_ALL_DEPENDENCIES})
-                get_target_property(asset_pack_dir ${dep} ASSET_PACKS)
-                get_target_property(name ${dep} PACK_NAMES)
-                if (asset_pack_dir AND name)
-                    list(APPEND raoe_add_module_ALL_PACK_DIRECTORIES "${dep},${name},${asset_pack_dir}")
+                get_target_property(pack_info ${dep} PACK_INFO)
+                if (NOT pack_info)
+                    continue ()
                 endif ()
+                STRING(REPLACE ";" "|" pack_info "${pack_info}")
+                list(APPEND raoe_add_module_ALL_PACK_DIRECTORIES "${dep}.${pack_info}")
             endforeach ()
-            message(STATUS "ALL_PACK_DIRECTORIES: ${raoe_add_module_ALL_PACK_DIRECTORIES}")
             # after building the executable, copy all the asset packs to the output directory
+
             foreach (pack_pair IN ITEMS ${raoe_add_module_ALL_PACK_DIRECTORIES})
-                string(REPLACE "," ";" pack_pair_split ${pack_pair})
+                string(REPLACE "." ";" pack_pair_split ${pack_pair})
                 list(GET pack_pair_split 0 pack_target)
-                list(GET pack_pair_split 1 pack_name)
-                list(GET pack_pair_split 2 pack_dir)
-                add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                                   COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}"
-                                   COMMAND ${CMAKE_COMMAND} -E tar "cf" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}/${pack_name}.zip" --format=zip -- "."
-                                   WORKING_DIRECTORY "${pack_dir}"
-                                   COMMENT "Extracting asset pack ${pack_dir}.zip to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}"
-                                   VERBATIM
-                )
+                list(GET pack_pair_split 1 pack_rest)
+
+                string(REPLACE "," ";" pack_pair_split ${pack_rest})
+                list(GET pack_pair_split 0 pack_name)
+                list(GET pack_pair_split 1 pack_dir)
+                list(GET pack_pair_split 2 pack_options)
+
+                string(REPLACE "[" ";" split_options "${pack_options}")
+                foreach (option IN ITEMS ${split_options})
+                    string(REPLACE "=" ";" option_split "${option}")
+                    list(GET option_split 0 option_key)
+                    list(GET option_split 1 option_value)
+                    set(${option_key} ${option_value})
+                endforeach ()
+
+
+                if (SYMLINK_IN_DEV AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+                    # in dev mode, just symlink the directory
+                    if (WIN32)
+                        set(raoe_add_module_EXECUTE_STRING cmd /C mklink /J "${output_pack_dir}/${pack_name}" "${pack_dir}")
+                    else ()
+                        set(raoe_add_module_EXECUTE_STRING ln -sf "${pack_dir}" "${output_pack_dir}/${pack_name}")
+                    endif ()
+                    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                                       COMMAND ${CMAKE_COMMAND} -E make_directory "${output_pack_dir}"
+                                       COMMAND ${raoe_add_module_EXECUTE_STRING}
+                                       COMMENT "Symlinking asset pack ${pack_dir} to ${output_pack_dir}/${pack_name}"
+                    )
+                else ()
+                    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                                       COMMAND ${CMAKE_COMMAND} -E make_directory "${output_pack_dir}"
+                                       COMMAND ${CMAKE_COMMAND} -E tar "cf" "${output_pack_dir}/${pack_name}.zip" --format=zip -- "."
+                                       WORKING_DIRECTORY "${pack_dir}"
+                                       COMMENT "Extracting asset pack ${pack_dir}.zip to ${output_pack_dir}"
+                                       VERBATIM
+                    )
+                endif ()
+
+
             endforeach ()
         endif ()
 
@@ -221,7 +255,7 @@ endmacro()
 
 macro(raoe_add_test)
     set(options)
-    set(oneValueArgs NAME TARGET_VARIABLE)
+    set(oneValueArgs NAME TARGET_VARIABLE PACK_DIRECTORY)
     set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES)
 
     cmake_parse_arguments(raoe_add_test "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -247,11 +281,13 @@ macro(raoe_add_test)
             PUBLIC
             Catch2::Catch2WithMain
             ${raoe_add_test_DEPENDENCIES}
+            PACK_DIRECTORY
+            ${raoe_add_test_PACK_DIRECTORY}
     )
 endmacro()
 
 macro(raoe_add_asset_pack)
-    set(options)
+    set(options PACK_IN_DEV)
     set(oneValueArgs NAME DIRECTORY)
     set(multiValueArgs)
     cmake_parse_arguments(raoe_add_asset_pack "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -273,13 +309,13 @@ macro(raoe_add_asset_pack)
     message(STATUS "Current Project: ${PROJECT_NAME}")
 
     # get the pack name list from the target properties of the module this pack is attached to
-    get_target_property(existing_pack_names ${PROJECT_NAME} PACK_NAMES)
-    get_target_property(existing_pack_dirs ${PROJECT_NAME} ASSET_PACKS)
-    list(APPEND existing_pack_names ${raoe_add_asset_pack_NAME})
-    list(APPEND existing_pack_dirs ${raoe_add_asset_pack_DIRECTORY})
+    get_target_property(existing_pack_info ${PROJECT_NAME} PACK_INFO)
+    set(SYMLINK_IN_DEV "$<IF:$<BOOL:${raoe_add_asset_pack_PACK_IN_DEV}>,TRUE,FALSE>")
+    list(APPEND existing_pack_info " ${raoe_add_asset_pack_NAME},${raoe_add_asset_pack_DIRECTORY},SYMLINK_IN_DEV=${SYMLINK_IN_DEV}")
+
     # set the pack names property on the module target
     set_target_properties(${PROJECT_NAME} PROPERTIES
-                          PACK_NAMES "${existing_pack_names}"
+                          PACK_INFO "${existing_pack_info}"
                           ASSET_PACKS "${existing_pack_dirs}"
     )
 endmacro()
