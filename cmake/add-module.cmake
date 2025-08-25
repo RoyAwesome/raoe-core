@@ -319,35 +319,3 @@ macro(raoe_add_asset_pack)
                           ASSET_PACKS "${existing_pack_dirs}"
     )
 endmacro()
-
-function(raoe_process_packs)
-    function(_get_all_cmake_targets out_var current_dir)
-        get_property(targets DIRECTORY ${current_dir} PROPERTY BUILDSYSTEM_TARGETS)
-        get_property(subdirs DIRECTORY ${current_dir} PROPERTY SUBDIRECTORIES)
-
-        foreach (subdir ${subdirs})
-            _get_all_cmake_targets(subdir_targets ${subdir})
-            list(APPEND targets ${subdir_targets})
-        endforeach ()
-
-        set(${out_var} ${targets} PARENT_SCOPE)
-    endfunction()
-
-    # Run at end of top-level CMakeLists
-    _get_all_cmake_targets(all_targets ${CMAKE_SOURCE_DIR})
-    message(STATUS "Test all_targets:${all_targets}")
-
-    foreach (target IN ITEMS ${all_targets})
-        get_target_property(PACK_DIRECTORY ${target} PACK_DIRECTORY)
-        if (PACK_DIRECTORY)
-            message(STATUS "Target ${target} has PACK_DIRECTORY: ${PACK_DIRECTORY}")
-            add_custom_command(TARGET ${target} POST_BUILD
-                               COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${target}>/${PACK_DIRECTORY}"
-                               COMMENT "Creating pack directory for ${target}"
-                               VERBATIM
-            )
-
-        endif ()
-    endforeach ()
-
-endfunction()
