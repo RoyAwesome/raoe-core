@@ -33,3 +33,8 @@ raoe_add_module(
         lua
         tomlplusplus::tomlplusplus
 )
+
+raoe_add_asset_pack(
+        NAME "core"
+        DIRECTORY "assets"
+)

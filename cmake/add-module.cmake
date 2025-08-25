@@ -1,88 +1,120 @@
 cmake_minimum_required(VERSION 3.26)
+function(raoe_recursively_get_dependencies targets out_var)
+    foreach (target IN ITEMS ${targets})
+        if (TARGET ${target})
+            list(APPEND all_deps ${target})
+            get_target_property(deps ${target} LINK_LIBRARIES)
+            foreach (dep IN ITEMS ${deps})
+                if (TARGET ${dep})
+                    list(APPEND all_deps ${dep})
+                endif ()
+            endforeach ()
+
+            foreach (dep IN ITEMS ${deps})
+                if (TARGET ${dep})
+                    raoe_recursively_get_dependencies(${dep} dep_deps)
+                    list(APPEND all_deps ${dep_deps})
+                endif ()
+            endforeach ()
+        endif ()
+    endforeach ()
+
+    list(REMOVE_DUPLICATES all_deps)
+    set(${out_var} ${all_deps} PARENT_SCOPE)
+endfunction()
 
 macro(raoe_add_module)
     set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE)
-    set(oneValueArgs NAME NAMESPACE CXX_STANDARD TARGET_VARIABLE)
+    set(oneValueArgs NAME NAMESPACE CXX_STANDARD TARGET_VARIABLE PACK_DIRECTORY)
     set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES SYMLINK_IN_DEV)
 
     cmake_parse_arguments(raoe_add_module "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    if(NOT raoe_add_module_STATIC
+    if (NOT raoe_add_module_STATIC
         AND NOT raoe_add_module_SHARED
         AND NOT raoe_add_module_MODULE
         AND NOT raoe_add_module_HEADERONLY
         AND NOT raoe_add_module_EXECUTABLE)
         message(FATAL_ERROR "raoe_add_module called without a valid module mode (must be STATIC, SHARED, MODULE, HEADERONLY, EXECUTABLE)")
-    endif()
+    endif ()
 
-    if(NOT raoe_add_module_CXX_STANDARD)
-        if(NOT CMAKE_CXX_STANDARD)
+    if (NOT raoe_add_module_EXECUTABLE AND DEFINED raoe_add_module_PACK_DIRECTORY)
+        message(FATAL_ERROR "Only executable modules can have a PACK_DIRECTORY")
+    endif ()
+
+    if (NOT raoe_add_module_CXX_STANDARD)
+        if (NOT CMAKE_CXX_STANDARD)
             set(raoe_add_module_CXX_STANDARD 20)
-        else()
+        else ()
             set(raoe_add_module_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-        endif()
-    endif()
+        endif ()
+    endif ()
 
     set(CMAKE_CXX_STANDARD ${raoe_add_module_CXX_STANDARD})
 
     # Validate the Input Arguments
-    if(NOT raoe_add_module_NAME)
+    if (NOT raoe_add_module_NAME)
         message(FATAL_ERROR "This module must have a name")
-    endif()
+    endif ()
 
-    if(NOT raoe_add_module_NAMESPACE)
+    if (NOT raoe_add_module_NAMESPACE)
         set(raoe_add_module_NAMESPACE "raoe")
-    endif()
+    endif ()
+
 
     string(REPLACE "::" "-" MODULE_LIBRARY_NAME "${raoe_add_module_NAMESPACE}-${raoe_add_module_NAME}")
 
     macro(raoe_add_module_configure_module)
-        if(NOT raoe_add_module_HEADERONLY AND NOT raoe_add_module_MODULE)
-            if(raoe_add_module_INCLUDE_DIRECTORIES)
+        if (NOT raoe_add_module_HEADERONLY AND NOT raoe_add_module_MODULE)
+            if (raoe_add_module_INCLUDE_DIRECTORIES)
                 target_include_directories(${PROJECT_NAME}
-                    ${raoe_add_module_INCLUDE_DIRECTORIES}
+                                           ${raoe_add_module_INCLUDE_DIRECTORIES}
                 )
-            endif()
-        endif()
+            endif ()
+        endif ()
 
-        if(NOT raoe_add_module_HEADERONLY)
+        if (NOT raoe_add_module_HEADERONLY)
             # add compile definitions.
             string(TOUPPER "${raoe_add_module_NAME}_API" module_api)
             string(REPLACE "-" "_" module_api ${raoe_add_module_NAME})
             target_compile_definitions(${PROJECT_NAME}
-                PRIVATE
+                                       PRIVATE
 
-                # "${module_api}=1"
-                # "RAOE_MODULE_NAME=${raoe_add_module_NAME}"
-                ${raoe_add_module_COMPILE_DEFINITIONS}
+                                       # "${module_api}=1"
+                                       # "RAOE_MODULE_NAME=${raoe_add_module_NAME}"
+                                       ${raoe_add_module_COMPILE_DEFINITIONS}
             )
-        endif()
+        endif ()
 
-        if(NOT raoe_add_module_EXECUTABLE)
+        if (NOT raoe_add_module_EXECUTABLE)
             set(raoe_add_module_alias "${raoe_add_module_NAMESPACE}::${raoe_add_module_NAME}${raoe_alias_sufix}")
             add_library("${raoe_add_module_alias}" ALIAS ${PROJECT_NAME})
-        endif()
+        endif ()
 
         target_link_libraries(
-            ${PROJECT_NAME}
-            ${raoe_add_module_DEPENDENCIES}
+                ${PROJECT_NAME}
+                ${raoe_add_module_DEPENDENCIES}
+        )
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+                              PACK_NAMES ""
+                              ASSET_PACKS ""
         )
     endmacro()
 
-    if(raoe_add_module_HEADERONLY)
+    if (raoe_add_module_HEADERONLY)
         set(raoe_alias_sufix "-headeronly")
         project("${MODULE_LIBRARY_NAME}${raoe_alias_sufix}" LANGUAGES CXX)
 
         add_library("${PROJECT_NAME}" INTERFACE)
         target_include_directories("${PROJECT_NAME}"
-            INTERFACE
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
+                                   INTERFACE
+                                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                   $<INSTALL_INTERFACE:include>
         )
 
         set(raoe_alias_sufix "")
         raoe_add_module_configure_module()
-    elseif(raoe_add_module_MODULE)
+    elseif (raoe_add_module_MODULE)
         set(raoe_alias_sufix "-MODULE")
         project("${MODULE_LIBRARY_NAME}${raoe_alias_sufix}" LANGUAGES CXX)
 
@@ -92,67 +124,99 @@ macro(raoe_add_module)
 
         add_library("${PROJECT_NAME}")
         target_sources("${PROJECT_NAME}"
-                PUBLIC
-                FILE_SET cxx_modules TYPE CXX_MODULES FILES
-                ${raoe_add_module_CPP_SOURCE_FILES}
+                       PUBLIC
+                       FILE_SET cxx_modules TYPE CXX_MODULES FILES
+                       ${raoe_add_module_CPP_SOURCE_FILES}
         )
         raoe_add_module_configure_module()
 
-    elseif(raoe_add_module_STATIC)
+    elseif (raoe_add_module_STATIC)
         set(raoe_alias_sufix "")
         project("${MODULE_LIBRARY_NAME}-static" LANGUAGES CXX)
 
         add_library("${PROJECT_NAME}"
-                STATIC
-                ${raoe_add_module_CPP_SOURCE_FILES}
+                    STATIC
+                    ${raoe_add_module_CPP_SOURCE_FILES}
         )
         raoe_add_module_configure_module()
-    elseif(raoe_add_module_SHARED)
+    elseif (raoe_add_module_SHARED)
         message(FATAL_ERROR "Shared modules are not supported yet")
-    elseif(raoe_add_module_EXECUTABLE)
+    elseif (raoe_add_module_EXECUTABLE)
         set(raoe_alias_sufix "")
         project("${MODULE_LIBRARY_NAME}-exe" LANGUAGES CXX)
         add_executable(${PROJECT_NAME}
-            ${raoe_add_module_CPP_SOURCE_FILES}
+                       ${raoe_add_module_CPP_SOURCE_FILES}
         )
 
-        raoe_add_module_configure_module()
-    elseif()
-        message(FATAL_ERROR "raoe_add_module called without a valid module mode (must be STATIC, SHARED, MODULE, HEADERONLY, EXECUTABLE)")
-    endif()
+        if (DEFINED raoe_add_module_PACK_DIRECTORY)
+            #collect all the dependencies of this module, so that we can copy their asset packs to the output directory
+            raoe_recursively_get_dependencies("${raoe_add_module_DEPENDENCIES}" raoe_add_module_ALL_DEPENDENCIES)
+            message(STATUS "ALL_DEPENDENCIES: ${raoe_add_module_ALL_DEPENDENCIES}")
+            # go through each of the dependencies and append their asset directories to a list
+            if (DEFINED raoe_add_module_ZIP_ASSET_PACKS)
+                list(APPEND raoe_add_module_ALL_PACK_DIRECTORIES ${raoe_add_module_ZIP_ASSET_PACKS})
+            endif ()
+            foreach (dep IN ITEMS ${raoe_add_module_ALL_DEPENDENCIES})
+                get_target_property(asset_pack_dir ${dep} ASSET_PACKS)
+                get_target_property(name ${dep} PACK_NAMES)
+                if (asset_pack_dir AND name)
+                    list(APPEND raoe_add_module_ALL_PACK_DIRECTORIES "${dep},${name},${asset_pack_dir}")
+                endif ()
+            endforeach ()
+            message(STATUS "ALL_PACK_DIRECTORIES: ${raoe_add_module_ALL_PACK_DIRECTORIES}")
+            # after building the executable, copy all the asset packs to the output directory
+            foreach (pack_pair IN ITEMS ${raoe_add_module_ALL_PACK_DIRECTORIES})
+                string(REPLACE "," ";" pack_pair_split ${pack_pair})
+                list(GET pack_pair_split 0 pack_target)
+                list(GET pack_pair_split 1 pack_name)
+                list(GET pack_pair_split 2 pack_dir)
+                add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                                   COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}"
+                                   COMMAND ${CMAKE_COMMAND} -E tar "cf" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}/${pack_name}.zip" --format=zip -- "."
+                                   WORKING_DIRECTORY "${pack_dir}"
+                                   COMMENT "Extracting asset pack ${pack_dir}.zip to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_PACK_DIRECTORY}"
+                                   VERBATIM
+                )
+            endforeach ()
+        endif ()
 
-    if(DEFINED raoe_add_module_TARGET_VARIABLE)
+        raoe_add_module_configure_module()
+    elseif ()
+        message(FATAL_ERROR "raoe_add_module called without a valid module mode (must be STATIC, SHARED, MODULE, HEADERONLY, EXECUTABLE)")
+    endif ()
+
+    if (DEFINED raoe_add_module_TARGET_VARIABLE)
         set(${raoe_add_module_TARGET_VARIABLE} ${PROJECT_NAME})
-    endif()
+    endif ()
 
     # if this module wants to copy out a directory post build, set up those commands here
-    if(DEFINED raoe_add_module_SYMLINK_IN_DEV)
-        foreach(raoe_add_module_ITEM IN ITEMS ${raoe_add_module_SYMLINK_IN_DEV})
+    if (DEFINED raoe_add_module_SYMLINK_IN_DEV)
+        foreach (raoe_add_module_ITEM IN ITEMS ${raoe_add_module_SYMLINK_IN_DEV})
             set(raoe_add_module_DIRLINK_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${raoe_add_module_ITEM}")
             set(raoe_add_module_DIRLINK_TARGET_PATH "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${raoe_add_module_ITEM}")
 
-            if(WIN32)
+            if (WIN32)
                 set(raoe_add_module_EXECUTE_STRING cmd /C mklink /J "${raoe_add_module_REAL_SRC_PATH}" "${raoe_add_module_DIRLINK_TARGET_PATH}")
-            else()
+            else ()
                 set(raoe_add_module_EXECUTE_STRING ln -sf "${raoe_add_module_DIRLINK_SOURCE_PATH}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/")
-            endif()
+            endif ()
 
             add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${raoe_add_module_EXECUTE_STRING}
+                               COMMAND ${raoe_add_module_EXECUTE_STRING}
             )
-        endforeach()
-    endif()
+        endforeach ()
+    endif ()
 
     # if this module has a third_party directory, include it now
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt" AND NOT INCLUDED_THIRD_PARTY_IN_THIS_FILE)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt" AND NOT INCLUDED_THIRD_PARTY_IN_THIS_FILE)
         set(INCLUDED_THIRD_PARTY_IN_THIS_FILE TRUE)
         add_subdirectory("third_party")
-    endif()
+    endif ()
 
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt" AND NOT INCLUDED_TEST_IN_THIS_FILE)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt" AND NOT INCLUDED_TEST_IN_THIS_FILE)
         set(INCLUDED_TEST_IN_THIS_FILE TRUE)
         add_subdirectory("test")
-    endif()
+    endif ()
 endmacro()
 
 macro(raoe_add_test)
@@ -162,26 +226,92 @@ macro(raoe_add_test)
 
     cmake_parse_arguments(raoe_add_test "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    if(NOT raoe_add_test_NAME)
+    if (NOT raoe_add_test_NAME)
         message(FATAL_ERROR "This module must have a name")
-    endif()
+    endif ()
 
     CPMAddPackage("gh:catchorg/Catch2@3.3.2")
 
     raoe_add_module(
-        EXECUTABLE
-        NAME ${raoe_add_test_NAME}
-        NAMESPACE "raoe::test"
-        TARGET_VARIABLE ${TARGET_VARIABLE}
-        CPP_SOURCE_FILES
+            EXECUTABLE
+            NAME ${raoe_add_test_NAME}
+            NAMESPACE "raoe::test"
+            TARGET_VARIABLE ${TARGET_VARIABLE}
+            CPP_SOURCE_FILES
             ${raoe_add_test_CPP_SOURCE_FILES}
-        INCLUDE_DIRECTORIES
+            INCLUDE_DIRECTORIES
             ${raoe_add_test_INCLUDE_DIRECTORIES}
-        COMPILE_DEFINITIONS
+            COMPILE_DEFINITIONS
             ${raoe_add_test_COMPILE_DEFINITIONS}
-        DEPENDENCIES
+            DEPENDENCIES
             PUBLIC
             Catch2::Catch2WithMain
-        ${raoe_add_test_DEPENDENCIES}
+            ${raoe_add_test_DEPENDENCIES}
     )
 endmacro()
+
+macro(raoe_add_asset_pack)
+    set(options)
+    set(oneValueArgs NAME DIRECTORY)
+    set(multiValueArgs)
+    cmake_parse_arguments(raoe_add_asset_pack "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if (NOT raoe_add_asset_pack_NAME)
+        message(FATAL_ERROR "This asset pack must have a name")
+    endif ()
+
+    if (NOT raoe_add_asset_pack_DIRECTORY)
+        set(raoe_add_asset_pack_DIRECTORY "assets/")
+    endif ()
+
+    set(raoe_add_asset_pack_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${raoe_add_asset_pack_DIRECTORY}/${raoe_add_asset_pack_NAME}")
+
+    if (NOT EXISTS "${raoe_add_asset_pack_DIRECTORY}/${raoe_add_asset_pack_NAME}.toml")
+        message(FATAL_ERROR "The provided path for the asset pack (${raoe_add_asset_pack_DIRECTORY}/${raoe_add_asset_pack_NAME}.toml) is invalid or does not contain a ${raoe_add_asset_pack_NAME}.toml file")
+    endif ()
+
+    message(STATUS "Current Project: ${PROJECT_NAME}")
+
+    # get the pack name list from the target properties of the module this pack is attached to
+    get_target_property(existing_pack_names ${PROJECT_NAME} PACK_NAMES)
+    get_target_property(existing_pack_dirs ${PROJECT_NAME} ASSET_PACKS)
+    list(APPEND existing_pack_names ${raoe_add_asset_pack_NAME})
+    list(APPEND existing_pack_dirs ${raoe_add_asset_pack_DIRECTORY})
+    # set the pack names property on the module target
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+                          PACK_NAMES "${existing_pack_names}"
+                          ASSET_PACKS "${existing_pack_dirs}"
+    )
+endmacro()
+
+function(raoe_process_packs)
+    function(_get_all_cmake_targets out_var current_dir)
+        get_property(targets DIRECTORY ${current_dir} PROPERTY BUILDSYSTEM_TARGETS)
+        get_property(subdirs DIRECTORY ${current_dir} PROPERTY SUBDIRECTORIES)
+
+        foreach (subdir ${subdirs})
+            _get_all_cmake_targets(subdir_targets ${subdir})
+            list(APPEND targets ${subdir_targets})
+        endforeach ()
+
+        set(${out_var} ${targets} PARENT_SCOPE)
+    endfunction()
+
+    # Run at end of top-level CMakeLists
+    _get_all_cmake_targets(all_targets ${CMAKE_SOURCE_DIR})
+    message(STATUS "Test all_targets:${all_targets}")
+
+    foreach (target IN ITEMS ${all_targets})
+        get_target_property(PACK_DIRECTORY ${target} PACK_DIRECTORY)
+        if (PACK_DIRECTORY)
+            message(STATUS "Target ${target} has PACK_DIRECTORY: ${PACK_DIRECTORY}")
+            add_custom_command(TARGET ${target} POST_BUILD
+                               COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${target}>/${PACK_DIRECTORY}"
+                               COMMENT "Creating pack directory for ${target}"
+                               VERBATIM
+            )
+
+        endif ()
+    endforeach ()
+
+endfunction()

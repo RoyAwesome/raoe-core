@@ -14,13 +14,10 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
    limitations under the License.
 */
 
-#version 450 core
+#version 460 core
 
-uniform EngineUniforms {
-    mat4 camera_matrix;
-    mat4 projection_matrix;
-    vec2 screen_size;
-    float time;
-} engine_uniforms;
+#include "core/shader/common.glsl"
 
-
+void main() {
+    gl_Position = vec4(vec3(0.0), 1.0);
+}
