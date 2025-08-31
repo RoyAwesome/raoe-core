@@ -19,6 +19,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "core/core.hpp"
 #include "glm/ext.hpp"
 #include "render/colors.hpp"
+#include "render/shader.hpp"
 #include "render/texture.hpp"
 
 namespace raoe::render
@@ -59,16 +60,21 @@ namespace raoe::render
         glm::mat4 camera_matrix = glm::identity<glm::mat4>();
     };
 
-    struct render_assets
+    struct render_context
     {
         std::shared_ptr<shader::shader> error_shader;
         std::shared_ptr<texture_2d> error_texture;
+        glm::ivec2 surface_size;
+        shader::glsl::file_load_callback_t load_callback;
     };
 
-    render_assets init_renderer();
+    void set_render_context(const render_context& ctx);
+    render_context& get_render_context();
 
-    void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform,
-                     const render_assets& render_assets);
+    std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,
+                                                              const glm::u8vec4& color2, const int square_size);
+
+    void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform);
     void render_mesh_element(mesh_element& mesh_element);
     void clear_surface(glm::u8vec4 color);
 }

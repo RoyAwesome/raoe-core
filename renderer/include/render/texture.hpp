@@ -46,7 +46,9 @@ namespace raoe::render
 
     enum class texture_filter
     {
+        // nearest is also known as "point" filtering
         nearest,
+        // linear is also known as "bilinear" filtering
         linear,
     };
 

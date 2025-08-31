@@ -52,11 +52,6 @@ RAOE_CORE_FLAGS_ENUM(raoe::render::shader::build_flags);
 
 namespace raoe::render::shader
 {
-    namespace glsl
-    {
-        using file_load_callback_t = std::function<std::string(const std::string&)>;
-        std::string preprocess(std::string source, const file_load_callback_t& load_file_callback);
-    }
 
     enum class shader_type
     {
@@ -73,6 +68,15 @@ namespace raoe::render::shader
 
         count,
     };
+
+    namespace glsl
+    {
+        using file_load_callback_t = std::function<std::string(const std::string&)>;
+        std::string preprocess(std::string source, const file_load_callback_t& load_file_callback,
+                               const std::unordered_map<std::string, std::string>& injections = {});
+        void injections_for_shader_type(std::unordered_map<std::string, std::string>& injections, shader_type type);
+
+    }
 
     inline build_flags from_type(const shader_type shader_type)
     {
@@ -122,11 +126,12 @@ namespace raoe::render::shader
         [[nodiscard]] std::span<const std::byte> source_bytes() const { return m_shader_source; }
         [[nodiscard]] bool valid() const { return !m_shader_source.empty(); }
 
-        void preprocess(const glsl::file_load_callback_t& load_file_callback)
+        void preprocess(const glsl::file_load_callback_t& load_file_callback,
+                        const std::unordered_map<std::string, std::string>& injections)
             requires(TLang == shader_lang::glsl)
         {
             const std::string src_str(reinterpret_cast<const char*>(m_shader_source.data()), m_shader_source.size());
-            const std::string preprocessed = glsl::preprocess(src_str, load_file_callback);
+            const std::string preprocessed = glsl::preprocess(src_str, load_file_callback, injections);
             m_shader_source.clear();
             stream::read_stream_into(std::back_inserter(m_shader_source), preprocessed);
         }
@@ -267,6 +272,12 @@ namespace raoe::render::shader
             return *this;
         }
 
+        [[nodiscard]] basic_builder& with_injections(const std::unordered_map<std::string, std::string>& injections)
+        {
+            m_injections = injections;
+            return *this;
+        }
+
         [[nodiscard]] basic_builder& add_module(source<TLang, shader_type::vertex> vertex_shader,
                                                 source<TLang, shader_type::fragment> fragment_shader)
         {
@@ -330,7 +341,8 @@ namespace raoe::render::shader
                                      stream);
             if constexpr(TLang == shader_lang::glsl)
             {
-                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback);
+                auto injections = m_injections;
+                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback, m_injections);
             }
 
             m_build_flags |= from_type(TType);
@@ -347,7 +359,7 @@ namespace raoe::render::shader
                                      source_text);
             if constexpr(TLang == shader_lang::glsl)
             {
-                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback);
+                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback, m_injections);
             }
 
             m_build_flags |= from_type(TType);
@@ -477,6 +489,7 @@ namespace raoe::render::shader
         build_flags m_build_flags = build_flags::none;
         std::string m_debug_name;
         glsl::file_load_callback_t m_load_file_callback;
+        std::unordered_map<std::string, std::string> m_injections;
     };
 
     using glsl_builder = basic_builder<shader_lang::glsl>;

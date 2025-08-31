@@ -145,3 +145,66 @@ void main()
 
     REQUIRE(preprocessed == combined);
 }
+
+TEST_CASE("Injection Test", "[SHADER][PREPROCESSOR]")
+{
+    std::string shader_source = R"GLSL(#version 330 core
+#inject <_RAOE_COMMON_GLSL>
+void main()
+{
+
+}
+    )GLSL";
+
+    std::function<std::string(std::string)> load_file_callback = [](const std::string& source) { return ""; };
+    const std::unordered_map<std::string, std::string> injections = {
+        {"_RAOE_COMMON_GLSL", R"GLSL(#define _RAOE_COMMON 1)GLSL"}
+    };
+
+    std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
+
+    spdlog::info(preprocessed);
+
+    std::string combined = R"GLSL(#version 330 core
+#define _RAOE_COMMON 1
+void main()
+{
+
+}
+    )GLSL";
+
+    REQUIRE(preprocessed == combined);
+}
+
+TEST_CASE("Common Injections For Fragment shader", "[SHADER][PREPROCESSOR]")
+{
+    std::string shader_source = R"GLSL(#version 330 core
+#inject <_RAOE_COMMON_DEFINES>
+void main()
+{
+
+}
+    )GLSL";
+
+    std::function<std::string(std::string)> load_file_callback = [](const std::string& source) { return ""; };
+    std::unordered_map<std::string, std::string> injections;
+    raoe::render::shader::glsl::injections_for_shader_type(injections, raoe::render::shader::shader_type::fragment);
+
+    std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
+
+    std::string combined = R"GLSL(#version 330 core
+#define _RAOE_STAGE_VERTEX 0
+#define _RAOE_STAGE_FRAGMENT 1
+#define _RAOE_STAGE_GEOMETRY 0
+#define _RAOE_STAGE_TESSELLATION_CONTROL 0
+#define _RAOE_STAGE_TESSELLATION_EVALUATION 0
+#define _RAOE_STAGE_MESH 0
+#define _RAOE_STAGE_COMPUTE 0
+void main()
+{
+
+}
+    )GLSL";
+
+    REQUIRE(preprocessed == combined);
+}

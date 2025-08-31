@@ -22,6 +22,9 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include <unordered_set>
 #include <utility>
 
+#include <map>
+#include <set>
+
 #include "glad/glad.h"
 
 namespace raoe::render::shader
@@ -304,7 +307,8 @@ namespace raoe::render::shader
 }
 
 std::string preprocess_r(std::string source, const raoe::render::shader::glsl::file_load_callback_t& load_file_callback,
-                         std::unordered_set<std::string>& included_files, uint32 original_file_index = 0)
+                         std::unordered_set<std::string>& included_files,
+                         const std::unordered_map<std::string, std::string>& injections, uint32 original_file_index = 0)
 {
 
     std::size_t pos = 0;
@@ -323,6 +327,15 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
         }
         return '\0';
     };
+    auto matching_end_char = [](const char start_char) -> char {
+        switch(start_char)
+        {
+            case '\"': return '\"';
+            case '\'': return '\'';
+            case '<': return '>';
+            default: return '\0';
+        }
+    };
     auto has_more = [&source, &pos]() -> bool { return pos < source.size(); };
     // find all elements that start with #
     while(has_more())
@@ -339,10 +352,11 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
                 const std::size_t start_pos = pos - 1; // get the start pos of the #
                 // read the word 'include'
                 std::string include_word;
-                include_word.resize(7);
-                for(int i = 0; i < 7; i++)
+                include_word.reserve(10);
+                // read chars until whitespace
+                while(has_more() && !isspace(peek()))
                 {
-                    include_word[i] = get();
+                    include_word += get();
                 }
                 if(include_word == "include")
                 {
@@ -356,7 +370,7 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
                     std::string include_path;
                     include_path.reserve(255);
                     // read until we find the matching end char
-                    while(has_more() && peek() != start_char)
+                    while(has_more() && peek() != matching_end_char(start_char))
                     {
                         include_path += get();
                     }
@@ -444,13 +458,48 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
                     }
                     // recursively preprocess the included file
                     file_contents = preprocess_r(std::move(file_contents), load_file_callback, included_files,
-                                                 included_files.size());
+                                                 injections, included_files.size());
 
                     std::string line_directive =
                         std::format("#line {} {}", original_file_line + 1, original_file_index);
                     // and replace the include statement with the file contents
                     source.replace(start_pos, end_pos - start_pos, file_contents + line_directive);
                     pos = start_pos + file_contents.size() + line_directive.size();
+                }
+                if(include_word == "inject")
+                {
+                    char start_char = get();
+                    while(has_more() && start_char != '\"' && start_char != '<' && start_char != '\'')
+                    {
+                        start_char = get();
+                    }
+                    // read chars until we find the end char
+                    std::string inject_path;
+                    inject_path.reserve(255);
+                    // read until we find the matching end char
+                    while(has_more() && peek() != matching_end_char(start_char))
+                    {
+                        inject_path += get();
+                    }
+                    inject_path.shrink_to_fit();
+                    // eat the end char
+                    get();
+                    const std::size_t end_pos = pos; // get the end pos.
+                    // trim whitespace from the include path
+                    raoe::string::trim(inject_path);
+
+                    // check if we have an injection for this path
+                    if(const auto it = injections.find(inject_path); it == injections.end())
+                    {
+                        // No injection, just remove the line
+                        source.replace(start_pos, end_pos - start_pos, "");
+                    }
+                    else
+                    {
+                        // remove the #inject line, replace it with the injection
+                        source.replace(start_pos, end_pos - start_pos, it->second);
+                        pos = start_pos + it->second.size();
+                    }
                 }
             }
         }
@@ -459,8 +508,35 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
     return source;
 }
 
-std::string raoe::render::shader::glsl::preprocess(std::string source, const file_load_callback_t& load_file_callback)
+std::string raoe::render::shader::glsl::preprocess(std::string source, const file_load_callback_t& load_file_callback,
+                                                   const std::unordered_map<std::string, std::string>& injections)
 {
     std::unordered_set<std::string> included_files;
-    return preprocess_r(std::move(source), load_file_callback, included_files);
+    return preprocess_r(std::move(source), load_file_callback, included_files, injections);
+}
+void raoe::render::shader::glsl::injections_for_shader_type(std::unordered_map<std::string, std::string>& injections,
+                                                            const shader_type type)
+{
+    std::string common_injection;
+    for(int i = 0; i < std::to_underlying(shader_type::count); i++)
+    {
+        constexpr std::array<const char*, std::to_underlying(shader_type::count)> shader_type_defines = {
+            "_RAOE_STAGE_VERTEX",
+            "_RAOE_STAGE_FRAGMENT",
+            "_RAOE_STAGE_GEOMETRY",
+            "_RAOE_STAGE_TESSELLATION_CONTROL",
+            "_RAOE_STAGE_TESSELLATION_EVALUATION",
+            "_RAOE_STAGE_MESH",
+            "_RAOE_STAGE_COMPUTE",
+        };
+        common_injection +=
+            std::format("#define {} {}", shader_type_defines[i], i == std::to_underlying(type) ? "1" : "0");
+
+        // Add a newline if this is not the last element
+        if(i + 1 < std::to_underlying(shader_type::count))
+        {
+            common_injection += '\n';
+        }
+    }
+    injections.emplace("_RAOE_COMMON_DEFINES", std::move(common_injection));
 }

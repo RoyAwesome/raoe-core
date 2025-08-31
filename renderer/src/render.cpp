@@ -184,42 +184,38 @@ namespace raoe::render
             .build_sync();
     }
 
-    render_assets init_renderer()
+    static std::optional<render_context> _static_render_context;
+    void set_render_context(const render_context& ctx)
     {
-        render_assets out_assets;
-        out_assets.error_shader = create_error_shader();
-
-        std::array<glm::u8vec4, 64 * 64> checkerboard {};
-        for(int y = 0; y < 64; ++y)
+        _static_render_context = ctx;
+    }
+    render_context& get_render_context()
+    {
+        check_if(!!_static_render_context, "Render context is not initialized");
+        return *_static_render_context;
+    }
+    std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,
+                                                              const glm::u8vec4& color2, const int square_size)
+    {
+        check_if(size.x > 0 && size.y > 0, "Texture size must be greater than 0");
+        check_if(square_size > 0, "Square size must be greater than 0");
+        std::vector<glm::u8vec4> data(size.x * size.y);
+        for(int y = 0; y < size.y; ++y)
         {
-            for(int x = 0; x < 64; ++x)
+            for(int x = 0; x < size.x; ++x)
             {
-                if((x > 32 && y > 32) || (x <= 32 && y <= 32))
-                {
-                    checkerboard[y * 64 + x] = colors::neon_pink;
-                }
-                else
-                {
-                    checkerboard[y * 64 + x] = colors::black;
-                }
+                const bool use_color1 = ((x / square_size) % 2) == ((y / square_size) % 2);
+                data[y * size.x + x] = use_color1 ? color1 : color2;
             }
         }
-        out_assets.error_texture = std::make_shared<texture_2d>(checkerboard, glm::ivec2(64, 64), texture_params {});
 
-        return out_assets;
-        //
-        // auto triangle = itr.world().entity(ra::entities::primitives::triangle);
-        // triangle.ensure<mesh_element>().set_data(std::span<simple_vertex>(triangle_points)).generate_buffers();
-        //
-        // auto cube = itr.world().entity(ra::entities::primitives::cube);
-        // cube.ensure<mesh_element>()
-        //     .set_data(std::span<simple_vertex>(cube_points), std::span<uint8>(cube_indices))
-        //     .generate_buffers();
-        //
-        // auto plane = itr.world().entity(ra::entities::primitives::plane);
-        // plane.ensure<mesh_element>()
-        //     .set_data(std::span<simple_vertex>(plane_points), std::span<uint8>(plane_indices))
-        //     .generate_buffers();
+        return std::make_shared<texture_2d>(data, size,
+                                            texture_params {
+                                                .wrap_u = texture_wrap::repeat,
+                                                .wrap_v = texture_wrap::repeat,
+                                                .filter_min = texture_filter::linear,
+                                                .filter_mag = texture_filter::linear,
+                                            });
     }
 
     std::tuple<int32, int32> get_size_and_gl_type(const renderer_type uniform_type)
@@ -268,19 +264,18 @@ namespace raoe::render
         return vao;
     }
 
-    void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform,
-                     const render_assets& render_assets)
+    void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform)
     {
         // loop through each element of the mesh and render it
         for(auto&& [mesh_element, shader] : mesh.m_elements)
         {
             check_if(!!mesh_element, "Mesh element is null");
             // determine which shader we use
-            shader::shader* s = shader ? shader.get() : render_assets.error_shader.get();
+            shader::shader* s = shader ? shader.get() : get_render_context().error_shader.get();
             // write the uniforms
             s->use();
             (*s)["mvp"] = camera.get_camera_matrix() * render_transform.cached_world_transform;
-            (*s)["tex"] = *render_assets.error_texture;
+            (*s)["tex"] = *get_render_context().error_texture;
 
             render_mesh_element(*mesh_element);
         }
