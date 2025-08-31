@@ -69,21 +69,44 @@ namespace raoe::fs
     {
         maybe_error(PHYSFS_mkdir(reinterpret_cast<const char*>(path.c_str())));
     }
+    void mkdir(const std::string& path)
+    {
+        maybe_error(PHYSFS_mkdir(path.c_str()));
+    }
 
     void delete_path(const path& path)
     {
         maybe_error(PHYSFS_delete(reinterpret_cast<const char*>(path.c_str())));
+    }
+    void delete_path(const std::string& path)
+    {
+        maybe_error(PHYSFS_delete(path.c_str()));
     }
 
     bool exists(const path& path)
     {
         return !!PHYSFS_exists(reinterpret_cast<const char*>(path.c_str()));
     }
+    bool exists(const std::string& path)
+    {
+        return !!PHYSFS_exists(path.c_str());
+    }
 
     path_stats stat(const path& path)
     {
         PHYSFS_Stat stats;
         if(!PHYSFS_stat(reinterpret_cast<const char*>(path.c_str()), &stats))
+        {
+            return {};
+        }
+        return path_stats {
+            stats.filesize,  stats.modtime, stats.createtime, stats.accesstime, static_cast<file_type>(stats.filetype),
+            !!stats.readonly};
+    }
+    path_stats stat(const std::string& path)
+    {
+        PHYSFS_Stat stats;
+        if(!PHYSFS_stat(path.c_str(), &stats))
         {
             return {};
         }

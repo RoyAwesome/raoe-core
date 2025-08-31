@@ -266,8 +266,13 @@ namespace raoe::fs
     void permit_symlinks(bool allow);
 
     void mkdir(const path& path);
+    void mkdir(const std::string& path);
+
     void delete_path(const path& path);
+    void delete_path(const std::string& path);
+
     bool exists(const path& path);
+    bool exists(const std::string& path);
 
     enum class file_type
     {
@@ -297,6 +302,20 @@ namespace raoe::fs
         return stat(path).type == file_type::regular;
     }
     [[nodiscard]] inline bool is_symlink(const path& path)
+    {
+        return stat(path).type == file_type::symlink;
+    }
+
+    path_stats stat(const std::string& path);
+    [[nodiscard]] inline bool is_directory(const std::string& path)
+    {
+        return stat(path).type == file_type::directory;
+    }
+    [[nodiscard]] inline bool is_regular_file(const std::string& path)
+    {
+        return stat(path).type == file_type::regular;
+    }
+    [[nodiscard]] inline bool is_symlink(const std::string& path)
     {
         return stat(path).type == file_type::symlink;
     }
