@@ -22,6 +22,7 @@ Copyright 2022-2024 Roy Awesome's Open Engine (RAOE)
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 struct PHYSFS_File;
 
@@ -31,29 +32,29 @@ namespace raoe::fs
     {
       public:
         path() = default;
-        path(const std::u8string& path)
-            : m_underlying(path)
+        explicit path(std::u8string path)
+            : m_underlying(std::move(path))
         {
         }
-        path(const std::filesystem::path& path)
+        explicit path(const std::filesystem::path& path)
             : m_underlying(path.u8string())
         {
         }
         template<typename TChar>
-        path(const std::basic_string<TChar>& path)
+        explicit path(const std::basic_string<TChar>& path)
             : m_underlying(std::u8string(path.begin(), path.end()))
         {
         }
 
-        operator std::u8string_view() const { return std::u8string_view(m_underlying); }
+        explicit operator std::u8string_view() const { return std::u8string_view(m_underlying); }
 
-        std::u8string u8string() const { return m_underlying; }
-        std::filesystem::path filesystem_path() const { return m_underlying; }
+        [[nodiscard]] std::u8string u8string() const { return m_underlying; }
+        [[nodiscard]] std::filesystem::path filesystem_path() const { return m_underlying; }
 
         bool operator==(const path& other) const { return m_underlying == other.m_underlying; }
         bool operator!=(const path& other) const { return m_underlying != other.m_underlying; }
 
-        path operator/(const path& other) const { return m_underlying + u8"/" + other.m_underlying; }
+        path operator/(const path& other) const { return path(m_underlying + u8"/" + other.m_underlying); }
 
         path& operator/=(const path& other)
         {
@@ -61,11 +62,7 @@ namespace raoe::fs
             return *this;
         }
 
-        path& operator=(const path& other)
-        {
-            m_underlying = other.m_underlying;
-            return *this;
-        }
+        path& operator=(const path& other) = default;
 
         path& operator=(const std::filesystem::path& other)
         {
@@ -79,21 +76,21 @@ namespace raoe::fs
             return *this;
         }
 
-        path operator+(const path& other) { return path(m_underlying + other.m_underlying); }
+        path operator+(const path& other) const { return path(m_underlying + other.m_underlying); }
         path& operator+=(const path& other)
         {
             m_underlying += other.m_underlying;
             return *this;
         }
 
-        path operator+(const std::u8string& other) { return path(m_underlying + other); }
+        path operator+(const std::u8string& other) const { return path(m_underlying + other); }
         path& operator+=(const std::u8string& other)
         {
             m_underlying += other;
             return *this;
         }
 
-        path operator+(const std::filesystem::path& other) { return path(m_underlying + other.u8string()); }
+        path operator+(const std::filesystem::path& other) const { return path(m_underlying + other.u8string()); }
         path& operator+=(const std::filesystem::path& other)
         {
             m_underlying += other.u8string();
@@ -103,17 +100,16 @@ namespace raoe::fs
         std::u8string::value_type operator[](std::size_t pos) const { return m_underlying[pos]; }
         std::u8string::value_type& operator[](std::size_t pos) { return m_underlying[pos]; }
 
-        const char8_t* c_str() const { return m_underlying.c_str(); }
-        const std::string_view string_view() const
+        [[nodiscard]] const char8_t* c_str() const { return m_underlying.c_str(); }
+        [[nodiscard]] std::string_view string_view() const
         {
-            return std::string_view(reinterpret_cast<const char*>(m_underlying.data()), m_underlying.size());
+            return {reinterpret_cast<const char*>(m_underlying.data()), m_underlying.size()};
         }
 
         class path_iterator
         {
           public:
-            path_iterator(const std::u8string& path)
-
+            explicit path_iterator(const std::u8string& path)
             {
                 m_path = path;
                 m_current = m_path.find(u8'/');
@@ -165,10 +161,10 @@ namespace raoe::fs
             std::size_t m_last;
         };
 
-        path_iterator begin() const { return path_iterator(m_underlying); }
-        path_iterator end() const { return path_iterator::make_last(m_underlying); }
+        [[nodiscard]] path_iterator begin() const { return path_iterator(m_underlying); }
+        [[nodiscard]] path_iterator end() const { return path_iterator::make_last(m_underlying); }
 
-        path stem() const
+        [[nodiscard]] path stem() const
         {
             // return the filename without the extension
             auto fname = filename();
@@ -179,25 +175,28 @@ namespace raoe::fs
             }
             return path(fname.m_underlying.substr(0, last));
         }
-        path filename() const { return path(m_underlying.substr(m_underlying.rfind(u8'/'), m_underlying.size())); }
-        path parent_path() const
+        [[nodiscard]] path filename() const
+        {
+            return path(m_underlying.substr(m_underlying.rfind(u8'/'), m_underlying.size()));
+        }
+        [[nodiscard]] path parent_path() const
         {
             if(m_underlying.empty())
             {
-                return path();
+                return {};
             }
             return path(m_underlying.substr(0, m_underlying.rfind(u8'/')));
         }
-        path extension() const
+        [[nodiscard]] path extension() const
         {
             // return just the extension of the filename
-            auto fname = filename();
-            auto last = fname.m_underlying.rfind(u8'.');
+            const auto file_name = filename();
+            const auto last = file_name.m_underlying.rfind(u8'.');
             if(last == std::u8string::npos)
             {
                 return {};
             }
-            return path(fname.m_underlying.substr(last, fname.m_underlying.size()));
+            return path(file_name.m_underlying.substr(last, file_name.m_underlying.size()));
         }
 
         [[nodiscard]] std::filesystem::path real_path() const;
@@ -227,21 +226,22 @@ namespace raoe::fs
         PHYSFS_File* m_file = nullptr;
 
       public:
-        base_physfs_stream(PHYSFS_File* in_file);
+        explicit base_physfs_stream(PHYSFS_File* in_file);
         virtual ~base_physfs_stream();
-        std::size_t length();
+        [[nodiscard]] std::size_t length() const;
     };
 
-    class ifstream : public base_physfs_stream, public std::istream
+    class ifstream final : public base_physfs_stream, public std::istream
     {
       public:
-        ifstream(raoe::fs::path in_path);
-        virtual ~ifstream();
+        explicit ifstream(const path& in_path);
+        explicit ifstream(const std::string& in_path);
+        virtual ~ifstream() override;
 
         [[nodiscard]] const raoe::fs::path& path() const { return m_in_path; }
 
       private:
-        raoe::fs::path m_in_path;
+        fs::path m_in_path;
     };
 
     enum class write_mode : uint8
@@ -250,15 +250,18 @@ namespace raoe::fs
         append,
     };
 
-    class ofstream : public base_physfs_stream, public std::ostream
+    class ofstream final : public base_physfs_stream, public std::ostream
     {
       public:
-        ofstream(path in_path, write_mode mode = write_mode::write);
-        virtual ~ofstream();
+        explicit ofstream(const path& in_path, write_mode mode = write_mode::write);
+        explicit ofstream(const std::string& in_path, write_mode mode = write_mode::write);
+        virtual ~ofstream() override;
     };
 
-    void init_fs(std::string arg0, std::filesystem::path base_path, std::string app_name, std::string org_name);
-    void mount(std::filesystem::path path, std::filesystem::path mount_point = "", bool append_to_search_path = true);
+    void init_fs(const std::string& arg0, const std::filesystem::path& base_path, const std::string& app_name,
+                 const std::string& org_name);
+    void mount(const std::filesystem::path& path, const std::filesystem::path& mount_point = "",
+               bool append_to_search_path = true);
 
     void permit_symlinks(bool allow);
 
@@ -299,17 +302,14 @@ namespace raoe::fs
     }
 }
 
-namespace std
+template<>
+struct std::hash<raoe::fs::path>
 {
-    template<>
-    struct hash<raoe::fs::path>
+    std::size_t operator()(const raoe::fs::path& path) const noexcept
     {
-        std::size_t operator()(const raoe::fs::path& path) const
-        {
-            return std::hash<std::u8string> {}(path.u8string());
-        }
-    };
-}
+        return std::hash<std::u8string> {}(path.u8string());
+    }
+};
 
 RAOE_CORE_DECLARE_FORMATTER(raoe::fs::path,
                             return format_to(ctx.out(), "{}", reinterpret_cast<const char*>(value.c_str()));)
