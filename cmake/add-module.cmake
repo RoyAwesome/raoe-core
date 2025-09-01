@@ -187,6 +187,8 @@ macro(raoe_add_module)
                     set(${option_key} ${option_value})
                 endforeach ()
 
+                string(STRIP "${pack_name}" pack_name)
+
 
                 if (SYMLINK_IN_DEV AND CMAKE_BUILD_TYPE STREQUAL "Debug")
                     # in dev mode, just symlink the directory

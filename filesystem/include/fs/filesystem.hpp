@@ -262,6 +262,7 @@ namespace raoe::fs
                  const std::string& org_name);
     void mount(const std::filesystem::path& path, const std::filesystem::path& mount_point = "",
                bool append_to_search_path = true);
+    void unmount(const std::filesystem::path& path);
 
     void permit_symlinks(bool allow);
 
@@ -273,6 +274,8 @@ namespace raoe::fs
 
     bool exists(const path& path);
     bool exists(const std::string& path);
+
+    const std::vector<std::string>& mountable_file_extensions();
 
     enum class file_type
     {

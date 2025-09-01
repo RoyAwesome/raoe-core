@@ -59,6 +59,10 @@ namespace raoe::fs
     {
         maybe_error(PHYSFS_mount(path.c_str(), mount_point.c_str(), append_to_search_path));
     }
+    void unmount(const std::filesystem::path& path)
+    {
+        maybe_error(PHYSFS_unmount(path.c_str()));
+    }
 
     void permit_symlinks(const bool allow)
     {
@@ -90,6 +94,19 @@ namespace raoe::fs
     bool exists(const std::string& path)
     {
         return !!PHYSFS_exists(path.c_str());
+    }
+    const std::vector<std::string>& mountable_file_extensions()
+    {
+        static std::optional<std::vector<std::string>> extensions;
+        if(!extensions.has_value())
+        {
+            extensions.emplace();
+            for(const PHYSFS_ArchiveInfo** i = PHYSFS_supportedArchiveTypes(); *i != nullptr; i++)
+            {
+                extensions->emplace_back((*i)->extension);
+            }
+        }
+        return *extensions;
     }
 
     path_stats stat(const path& path)

@@ -125,6 +125,7 @@ namespace raoe::render::shader
         [[nodiscard]] static shader_type type() { return TType; }
         [[nodiscard]] std::span<const std::byte> source_bytes() const { return m_shader_source; }
         [[nodiscard]] bool valid() const { return !m_shader_source.empty(); }
+        [[nodiscard]] std::string_view debug_name() const { return m_debug_name; }
 
         void preprocess(const glsl::file_load_callback_t& load_file_callback,
                         const std::unordered_map<std::string, std::string>& injections)
@@ -138,6 +139,7 @@ namespace raoe::render::shader
 
       private:
         std::vector<std::byte> m_shader_source;
+        std::string m_debug_name;
     };
 
     struct uniform
@@ -252,7 +254,8 @@ namespace raoe::render::shader
 
     namespace _internal
     {
-        uint32 compile_source_glsl(shader_type shader_type, std::span<const std::byte> source);
+        uint32 compile_source_glsl(shader_type shader_type, std::span<const std::byte> source,
+                                   std::string_view debug_name);
         uint32 create_program(std::span<uint32, underlying(shader_type::count)> modules);
     }
 
@@ -266,9 +269,10 @@ namespace raoe::render::shader
         {
         }
 
-        [[nodiscard]] basic_builder& with_file_loader(glsl::file_load_callback_t loader)
+        template<std::invocable<const std::string&> TFunc>
+        [[nodiscard]] basic_builder& with_file_loader(TFunc&& loader)
         {
-            m_load_file_callback = std::move(loader);
+            m_load_file_callback = std::function(loader);
             return *this;
         }
 
@@ -342,7 +346,8 @@ namespace raoe::render::shader
             if constexpr(TLang == shader_lang::glsl)
             {
                 auto injections = m_injections;
-                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback, m_injections);
+                glsl::injections_for_shader_type(injections, TType);
+                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback, injections);
             }
 
             m_build_flags |= from_type(TType);
@@ -350,10 +355,32 @@ namespace raoe::render::shader
             return *this;
         }
         template<shader_type TType>
-        [[nodiscard]] basic_builder& add_module(std::string_view source_text)
+        [[nodiscard]] basic_builder& load_module(const std::string& file_path)
         {
             // check if we can build this shader type
             check_can_attach_module(from_type(TType));
+            std::get<underlying(TType)>(m_sources).m_debug_name = file_path;
+
+            stream::read_stream_into(std::back_inserter(std::get<underlying(TType)>(m_sources).m_shader_source),
+                                     m_load_file_callback(file_path));
+            if constexpr(TLang == shader_lang::glsl)
+            {
+                auto injections = m_injections;
+                glsl::injections_for_shader_type(injections, TType);
+                std::get<underlying(TType)>(m_sources).preprocess(m_load_file_callback, injections);
+            }
+
+            m_build_flags |= from_type(TType);
+
+            return *this;
+        }
+
+        template<shader_type TType>
+        [[nodiscard]] basic_builder& add_module_source(std::string_view source_text)
+        {
+            // check if we can build this shader type
+            check_can_attach_module(from_type(TType));
+            std::get<underlying(TType)>(m_sources).m_debug_name = m_debug_name;
 
             stream::read_stream_into(std::back_inserter(std::get<underlying(TType)>(m_sources).m_shader_source),
                                      source_text);
@@ -388,7 +415,7 @@ namespace raoe::render::shader
                 std::apply(
                     [&shader_ids](auto&&... args) {
                         ((shader_ids[underlying(args.type())] =
-                              _internal::compile_source_glsl(args.type(), args.source_bytes())),
+                              _internal::compile_source_glsl(args.type(), args.source_bytes(), args.debug_name())),
                          ...);
                     },
                     m_sources);

@@ -37,12 +37,13 @@ raoe::engine::sys::pack_module::pack_module(flecs::world& world)
     });
 }
 
-void parse_manifest(raoe::engine::sys::pack::pack_manifest& manifest, const std::filesystem::path& manifest_file_path)
+void parse_manifest(raoe::engine::sys::pack::pack_manifest& manifest, const std::string& manifest_filename,
+                    const std::string& manifest_contents)
 {
-    auto table = toml::parse_file(manifest_file_path.string());
+    auto table = toml::parse(manifest_contents, manifest_filename);
     if(!table)
     {
-        raoe::panic("Unable to parse manifest file {}: {}", manifest_file_path.string(), table.error().description());
+        raoe::panic("Unable to parse manifest file {}: {}", manifest_filename, table.error().description());
     }
 
     // Parse the manifest file into the pack_manifest structure
@@ -88,26 +89,72 @@ flecs::ref<raoe::engine::sys::pack> raoe::engine::sys::load_pack(const flecs::en
                                                                  const std::filesystem::path& path,
                                                                  const pack_flags flags)
 {
-    if(!ensure(std::filesystem::is_directory(path), "Unable to load pack from {}, not a directory", path.string()))
-    {
-        return {};
-    }
-
     // Check if the pack has a valid manifest file, and if so, load it.
     std::string manifest_filename = path.stem().string() + ".toml";
-    if(!ensure(std::filesystem::exists(path / manifest_filename), "Unable to find manifest file {} in pack {}",
-               manifest_filename, path.string()))
+    std::string manifest_contents;
+    std::filesystem::path actually_loaded_path = path;
+
+    if(std::filesystem::is_directory(path))
     {
-        return {};
+        std::filesystem::path manifest_file_path = path / manifest_filename;
+        if(!ensure(std::filesystem::exists(manifest_file_path), "Unable to find manifest file {} in pack {}",
+                   manifest_filename, path.string()))
+        {
+            return {};
+        }
+        // Read the manifest file
+        if(std::ifstream manifest_file(manifest_file_path); !ensure(
+               manifest_file.is_open(), "Unable to open manifest file {} in pack {}", manifest_filename, path.string()))
+        {
+            return {};
+        }
+        else
+        {
+            stream::read_stream_into(manifest_contents, manifest_file);
+        }
     }
-    spdlog::info(" - Loading pack {}, manifest {}", path.string(), manifest_filename);
-    pack loaded_pack {.m_path = path,
-                      .m_name = path.filename().string(),
+    else
+    {
+        // It's a file, so lets figure out what type of file it is, and attempt to mount it.
+        auto& extensions = fs::mountable_file_extensions();
+        std::filesystem::path manifest_potential_path;
+        bool found_path = false;
+        for(const auto& ext : extensions)
+        {
+            manifest_potential_path = path.string() + std::format(".{}", ext);
+            if(std::filesystem::exists(manifest_potential_path))
+            {
+                found_path = true;
+                break;
+            }
+        }
+
+        if(!ensure(found_path, "Unable to find a mountable pack file for pack {}", path.string()))
+        {
+            return {};
+        }
+
+        // Mount the pack so we can read the manifest file
+
+        fs::mount(manifest_potential_path);
+        // Attempt to read the manifest
+        if(fs::exists(manifest_filename))
+        {
+            panic("Unable to find manifest file {} in pack {}", manifest_filename, path.string());
+            return {};
+        }
+        manifest_contents = load_string_from_pack(manifest_filename);
+        fs::unmount(manifest_potential_path);
+        actually_loaded_path = manifest_potential_path;
+    }
+    spdlog::info(" - Loading pack {}, manifest {}", actually_loaded_path.string(), manifest_filename);
+    pack loaded_pack {.m_path = actually_loaded_path,
+                      .m_name = path.stem().string(),
                       .m_state = pack_state::unmounted,
                       .m_flags = flags,
                       .m_manifest = {}};
 
-    parse_manifest(loaded_pack.m_manifest, path / manifest_filename);
+    parse_manifest(loaded_pack.m_manifest, manifest_filename, manifest_contents);
 
     // place the pack into the entity, and return a reference to it
     return into_entity.set(std::move(loaded_pack));
@@ -130,4 +177,17 @@ bool raoe::engine::sys::mount_pack(flecs::ref<pack> pack_ref)
     pack_ref.entity().world().event<pack_state_change>().id<pack>().entity(pack_ref.entity()).emit();
     spdlog::info(" - Mounted pack {} at {}", pack_ref->m_name, pack_ref->m_path.string());
     return true;
+}
+
+std::string raoe::engine::sys::load_string_from_pack(const std::string& path)
+{
+    // TODO: Built in assets
+    if(fs::exists(path))
+    {
+        fs::ifstream f(path);
+        std::string result;
+        stream::read_stream_into(result, f);
+        return result;
+    }
+    return {};
 }

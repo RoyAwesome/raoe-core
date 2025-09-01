@@ -131,6 +131,14 @@ namespace raoe::engine
             present,
             render_end,
         };
+
+        enum class engine_assets
+        {
+            error_texture,
+            error_shader,
+            default_material,
+            immediate_mode_shader,
+        };
     }
 
 }

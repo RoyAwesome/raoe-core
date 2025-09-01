@@ -17,6 +17,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/render.hpp"
 #include "render/render.hpp"
 
+#include "engine/sys/pack.hpp"
 #include "render/immediate.hpp"
 
 struct scoped_world_defer_suspend
@@ -30,14 +31,48 @@ struct scoped_world_defer_suspend
     flecs::world_t* world;
 };
 
+template<typename T>
+void fill_injections_for_vertex_type(std::unordered_map<std::string, std::string>& injections)
+{
+}
+
 void init_render(const flecs::iter it)
 {
-    auto _ = scoped_world_defer_suspend(it.world());
+    using namespace raoe::render::shader;
 
-    auto assets = raoe::render::init_renderer();
-    it.world().set<raoe::render::render_assets>(std::move(assets));
+    spdlog::info("Initializing renderer");
+    auto _ = scoped_world_defer_suspend(it.world());
+    const auto error_texture = raoe::render::generate_checkerboard_texture({64, 64}, raoe::render::colors::black,
+                                                                           raoe::render::colors::magic_pink, 8);
+
+    spdlog::info("Building Error Shader");
+    const auto error_shader = glsl_builder("Error Shader")
+                                  .with_file_loader(raoe::engine::sys::load_string_from_pack)
+                                  .load_module<shader_type::vertex>("core/shaders/common.vert.glsl")
+                                  .load_module<shader_type::fragment>("core/shaders/error.frag.glsl")
+                                  .build_sync();
+
+    spdlog::info("Building Generic 2D Shader");
+    const auto generic_2d_shader = glsl_builder("Generic 2D Shader")
+                                       .with_file_loader(raoe::engine::sys::load_string_from_pack)
+                                       .load_module<shader_type::vertex>("core/shaders/common.vert.glsl")
+                                       .load_module<shader_type::fragment>("core/shaders/generic_2d.frag.glsl")
+                                       .build_sync();
+
+    const raoe::render::render_context ctx {.error_shader = error_shader,
+                                            .generic_2d_shader = generic_2d_shader,
+                                            .error_texture = error_texture,
+                                            .load_callback =
+                                                glsl::file_load_callback_t(raoe::engine::sys::load_string_from_pack)};
+
+    spdlog::info("Setting render context");
+    raoe::render::set_render_context(ctx);
 
     it.world().entity(raoe::engine::entities::engine::main_camera).add<raoe::render::camera>();
+
+    it.world()
+        .entity(raoe::engine::entities::engine_assets::error_texture)
+        .set<std::shared_ptr<raoe::render::texture_2d>>(error_texture);
 }
 
 void compute_render_transform_3d(flecs::entity e, raoe::render::render_transform& rt,
@@ -86,7 +121,6 @@ void prepare_frame(flecs::iter itr)
 void draw_frame(flecs::iter itr)
 {
     // Get the global infos
-    const auto& render_assets = itr.world().get<raoe::render::render_assets>();
     flecs::ref<raoe::render::camera> main_camera = {itr.world().entity(raoe::engine::entities::engine::main_camera)};
     raoe::check_if(main_camera,
                    "No main camera found. Please ensure a camera is set as the main camera in the engine.");
@@ -107,7 +141,7 @@ void draw_frame(flecs::iter itr)
             camera = main_camera;
         }
 
-        raoe::render::render_mesh(*camera.get(), *render_info->mesh, *render_transform, render_assets);
+        raoe::render::render_mesh(*camera.get(), *render_info->mesh, *render_transform);
     }
 }
 
@@ -124,7 +158,6 @@ raoe::engine::render_module::render_module(const flecs::world& world)
 {
     world.component<render::render_transform>();
     world.component<render::camera>();
-    world.component<render::render_assets>().add(flecs::Singleton);
 
     world.system().kind(entities::startup::on_render_start).immediate().run(init_render);
     world.system<render::render_transform, const transform_3d>()

@@ -29,7 +29,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 namespace raoe::render::shader
 {
-    uint32 _internal::compile_source_glsl(shader_type shader_type, const std::span<const std::byte> source)
+    uint32 _internal::compile_source_glsl(shader_type shader_type, const std::span<const std::byte> source,
+                                          std::string_view debug_name)
     {
         if(source.empty())
         {
@@ -48,7 +49,7 @@ namespace raoe::render::shader
             case shader_type::compute: gl_shader_type = GL_COMPUTE_SHADER; break;
             default: panic("Invalid shader type", underlying(shader_type));
         }
-        spdlog::info("Compiling {} Shader - stage: {}", shader_lang::glsl, shader_type);
+        spdlog::info("Compiling {} Shader '{}' - stage: {}", shader_lang::glsl, debug_name, shader_type);
         const GLuint shader = glCreateShader(gl_shader_type);
         if(shader == 0)
         {
@@ -69,8 +70,9 @@ namespace raoe::render::shader
             std::string log;
             log.resize(log_size);
             glGetShaderInfoLog(shader, log_size, &log_size, log.data());
+            log.resize(log_size - 1);
 
-            ensure_always("Failed to compile shader: {}", log);
+            ensure_always("Failed to compile shader '{}':\n{}\nSource:\n{}", debug_name, log, source_str);
 
             glDeleteShader(shader);
             return GL_NONE;
@@ -493,6 +495,7 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
                     {
                         // No injection, just remove the line
                         source.replace(start_pos, end_pos - start_pos, "");
+                        pos = start_pos; // move the pos back to the start pos, as we removed the entire line
                     }
                     else
                     {

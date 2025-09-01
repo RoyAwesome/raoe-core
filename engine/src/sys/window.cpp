@@ -31,6 +31,11 @@ namespace raoe::engine::sys
     void gl_error_callback(const GLenum source, const GLenum type, GLuint id, const GLenum severity, GLsizei length,
                            const GLchar* message, const void* userParam)
     {
+        // Shader compiler errors are handled elsewhere with more detail
+        if(source == GL_DEBUG_SOURCE_SHADER_COMPILER)
+        {
+            return;
+        }
         using namespace std::literals::string_view_literals;
         auto severity_str = ""sv;
         switch(severity)
@@ -80,8 +85,7 @@ namespace raoe::engine::sys
         }
 
         spdlog::log(log_level, "OpenGL [{}]: {} type={} Message:\"{}\"", severity_str, src_str, type_str, message);
-        debug::debug_break_if(type == GL_DEBUG_TYPE_ERROR);
-    }
+        debug::debug_break_if(type == GL_DEBUG_TYPE_ERROR);     }
     static void glfw_error_callback(int error_code, const char* description)
     {
         ensure(!error_code, "GLFW Error: {} {}", error_code, description);

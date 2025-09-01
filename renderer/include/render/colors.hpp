@@ -31,7 +31,7 @@ namespace raoe::render::colors
         const uint8 b = (hex >> 16) & 0xff; // blue
         const uint8 g = (hex >> 8) & 0xff;  // green
         const uint8 r = hex & 0xff;         // red
-        return glm::u8vec4(r, g, b, a);
+        return {r, g, b, a};
     }
 
     constexpr glm::u8vec4 from_hex_rgba(const uint32 hex)
@@ -42,7 +42,7 @@ namespace raoe::render::colors
         const uint8 g = (hex >> 16) & 0xff; // green
         const uint8 b = (hex >> 8) & 0xff;  // blue
         const uint8 a = hex & 0xff;         // alpha
-        return glm::u8vec4(r, g, b, a);
+        return {r, g, b, a};
     }
 
     inline constexpr glm::u8vec4 transparent_black = from_hex_abgr(0x00000000);
@@ -187,5 +187,6 @@ namespace raoe::render::colors
     inline constexpr glm::u8vec4 white_smoke = from_hex_abgr(0xfff5f5f5);
     inline constexpr glm::u8vec4 yellow = from_hex_abgr(0xff00ffff);
     inline constexpr glm::u8vec4 yellow_green = from_hex_abgr(0xff32cd9a);
+    inline constexpr glm::u8vec4 magic_pink = from_hex_rgba(0xffff00ff);
 
 }

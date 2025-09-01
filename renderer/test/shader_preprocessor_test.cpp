@@ -22,7 +22,7 @@
 #include "render/render.hpp"
 #include "render/shader.hpp"
 
-TEST_CASE("Preprocessor Test", "[SHADER][PREPROCESSOR]")
+TEST_CASE("Include Test", "[SHADER][PREPROCESSOR]")
 {
     std::string shader_source = R"GLSL(#version 330 core
 #include "test_include.glsl"
@@ -163,8 +163,6 @@ void main()
 
     std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
 
-    spdlog::info(preprocessed);
-
     std::string combined = R"GLSL(#version 330 core
 #define _RAOE_COMMON 1
 void main()
@@ -200,6 +198,146 @@ void main()
 #define _RAOE_STAGE_TESSELLATION_EVALUATION 0
 #define _RAOE_STAGE_MESH 0
 #define _RAOE_STAGE_COMPUTE 0
+void main()
+{
+
+}
+    )GLSL";
+
+    REQUIRE(preprocessed == combined);
+}
+
+TEST_CASE("Injection Not Provided is Removed", "[SHADER][PREPROCESSOR]")
+{
+    std::string shader_source = R"GLSL(#version 330 core
+#inject <_RAOE_COMMON_DEFINES>
+void main()
+{
+
+}
+    )GLSL";
+
+    std::function<std::string(std::string)> load_file_callback = [](const std::string& source) { return ""; };
+    const std::unordered_map<std::string, std::string> injections = {
+        {"_RAOE_SOME_OTHER_INJECTION", R"GLSL(#define _RAOE_COMMON 1)GLSL"}
+    };
+    std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
+
+    std::string combined = R"GLSL(#version 330 core
+
+void main()
+{
+
+}
+    )GLSL";
+
+    REQUIRE(preprocessed == combined);
+}
+
+TEST_CASE("Injection Not Provided is Removed MultiInjection", "[SHADER][PREPROCESSOR]")
+{
+    std::string shader_source = R"GLSL(#version 330 core
+#inject <_RAOE_COMMON_DEFINES>
+#inject <_RAOE_ANOTHER_NOT_DEFINED>
+void main()
+{
+
+}
+    )GLSL";
+
+    std::function<std::string(std::string)> load_file_callback = [](const std::string& source) { return ""; };
+    const std::unordered_map<std::string, std::string> injections = {
+        {"_RAOE_SOME_OTHER_INJECTION", R"GLSL(#define _RAOE_COMMON 1)GLSL"}
+    };
+    std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
+
+    std::string combined = R"GLSL(#version 330 core
+
+
+void main()
+{
+
+}
+    )GLSL";
+
+    REQUIRE(preprocessed == combined);
+}
+
+TEST_CASE("Include With Injection Test", "[SHADER][PREPROCESSOR]")
+{
+    std::string shader_source = R"GLSL(#version 330 core
+#include "test_include.glsl"
+void main()
+{
+
+}
+    )GLSL";
+
+    std::string test_include = R"GLSL(#version 330 core
+//This is a test include
+uniform mat4 test;
+#inject <_RAOE_COMMON_GLSL>
+)GLSL";
+
+    std::function<std::string(std::string)> load_file_callback = [&test_include](const std::string& source) {
+        return test_include;
+    };
+    const std::unordered_map<std::string, std::string> injections = {
+        {"_RAOE_COMMON_GLSL", R"GLSL(#define _RAOE_COMMON 1)GLSL"}
+    };
+
+    std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
+
+    std::string combined = R"GLSL(#version 330 core
+#version 330 core
+#line 2 1
+//This is a test include
+uniform mat4 test;
+#define _RAOE_COMMON 1
+#line 3 0
+void main()
+{
+
+}
+    )GLSL";
+
+    REQUIRE(preprocessed == combined);
+}
+
+TEST_CASE("Include With Injection Test And Extra Inject", "[SHADER][PREPROCESSOR]")
+{
+    std::string shader_source = R"GLSL(#version 330 core
+#include "test_include.glsl"
+void main()
+{
+
+}
+    )GLSL";
+
+    std::string test_include = R"GLSL(#version 330 core
+//This is a test include
+uniform mat4 test;
+#inject <_RAOE_COMMON_GLSL>
+#inject <_RAOE_SOME_OTHER_INJECTION>
+)GLSL";
+
+    std::function<std::string(std::string)> load_file_callback = [&test_include](const std::string& source) {
+        return test_include;
+    };
+    const std::unordered_map<std::string, std::string> injections = {
+        {"_RAOE_COMMON_GLSL", R"GLSL(#define _RAOE_COMMON 1)GLSL"}
+    };
+
+    std::string preprocessed = raoe::render::shader::glsl::preprocess(shader_source, load_file_callback, injections);
+
+    std::string combined = R"GLSL(#version 330 core
+#version 330 core
+#line 2 1
+//This is a test include
+uniform mat4 test;
+#define _RAOE_COMMON 1
+
+#line 3 0
 void main()
 {
 

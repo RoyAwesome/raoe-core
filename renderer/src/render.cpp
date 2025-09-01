@@ -179,8 +179,8 @@ namespace raoe::render
         spdlog::info("Vertex Shader: \n{}", vertex_shader);
 
         return shader::glsl_builder("Error Shader")
-            .add_module<shader::shader_type::vertex>(vertex_shader)
-            .add_module<shader::shader_type::fragment>(fragment_shader)
+            .add_module_source<shader::shader_type::vertex>(vertex_shader)
+            .add_module_source<shader::shader_type::fragment>(fragment_shader)
             .build_sync();
     }
 

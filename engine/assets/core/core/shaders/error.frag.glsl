@@ -1,3 +1,4 @@
+#version 460 core
 /*
 Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
@@ -13,11 +14,21 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+#include "core/shaders/common.glsl"
+layout(location=1, binding=0) uniform sampler2D tex;
 
-#version 460 core
-
-#include "core/shader/common.glsl"
+out vec4 fragColor;
 
 void main() {
-    gl_Position = vec4(vec3(0.0), 1.0);
+    vec4 object_color = texture(tex, attributes.aUV0);
+
+    float ambient_light = 0.1;
+    vec3 diffuse_light = vec3(0.7, 0.7, 0.7);
+    #if USE_NORMALS
+    vec3 light_direction = normalize(vec3(2.0, 2.0, 2.0) - gl_Position);
+    float intensity = max(dot(normalize(attributes.aNorm0), light_direction), 0);
+    diffuse_light *= intensity;
+    #endif
+    object_color.rgb *= (vec3(ambient_light) + diffuse_light);
+    fragColor = object_color;
 }

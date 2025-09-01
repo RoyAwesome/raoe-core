@@ -1,3 +1,4 @@
+#version 460 core
 /*
 Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
@@ -13,14 +14,16 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
-#pragma once
-
-layout(std140, binding = 0) uniform EngineUniforms {
-    mat4 camera_matrix;
-    mat4 projection_matrix;
-    vec2 screen_size;
-    float time;
-} engine_uniforms;
+#include "core/shaders/common.glsl"
 
 
+layout(location=0) in vec3 inPosition;
+layout(location=1) in vec3 inNormal;
+layout(location=2) in vec2 inUV;
+
+
+void main() {
+    gl_Position = vec4(inPosition, 1) * engine_uniforms.projection_matrix * engine_uniforms.camera_matrix;
+    attributes.aNorm0 = inNormal;
+    attributes.aUV0 = inUV;
+}

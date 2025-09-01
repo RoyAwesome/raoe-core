@@ -66,9 +66,9 @@ namespace raoe::engine::sys
             };
             std::vector<pack_dependency> m_dependencies;
 
-            std::vector<raoe::fs::path> m_init_scripts;
-            std::vector<raoe::fs::path> m_game_scripts;
-            std::vector<raoe::fs::path> m_editor_scripts;
+            std::vector<fs::path> m_init_scripts;
+            std::vector<fs::path> m_game_scripts;
+            std::vector<fs::path> m_editor_scripts;
         };
         pack_manifest m_manifest;
     };
@@ -76,13 +76,24 @@ namespace raoe::engine::sys
     flecs::ref<pack> load_pack(flecs::entity into_entity, const std::filesystem::path& path,
                                pack_flags flags = pack_flags::none);
 
-    inline flecs::ref<pack> load_pack(flecs::world& world, const std::string& name, const std::filesystem::path& path,
-                                      const pack_flags flags = pack_flags::none)
+    inline flecs::ref<pack> load_pack(const flecs::world& world, const std::string& name,
+                                      const std::filesystem::path& path, const pack_flags flags = pack_flags::none)
     {
         return load_pack(world.entity(name.c_str()), path, flags);
     }
 
     bool mount_pack(flecs::ref<pack> pack_ref);
+
+    bool load_file_from_pack(const std::string& path, std::output_iterator<std::byte> auto into_container)
+    {
+        if(fs::exists(path))
+        {
+            fs::ifstream f(path);
+            return stream::read_stream_into(into_container, f);
+        }
+        return false;
+    }
+    std::string load_string_from_pack(const std::string& path);
 }
 
 RAOE_CORE_FLAGS_ENUM(raoe::engine::sys::pack_flags);
