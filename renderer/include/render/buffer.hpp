@@ -25,6 +25,7 @@ namespace raoe::render
     {
         vertex,
         index,
+        uniform,
     };
 
     struct buffer
@@ -128,6 +129,12 @@ namespace raoe::render
             buffer::set_data(std::as_bytes(data), renderer_type_of<T>::elements(), data.size(), sizeof(T));
         }
 
+        template<type_described T>
+        void set_data(const T& data)
+        {
+            set_data(std::span<const T>(&data, 1));
+        }
+
         void set_data(const std::span<const std::byte> data, const std::span<const type_description> elements,
                       const std::size_t element_count, std::size_t element_stride)
         {
@@ -146,6 +153,7 @@ namespace raoe::render
 
     using vertex_buffer = typed_buffer<buffer_type::vertex>;
     using index_buffer = typed_buffer<buffer_type::index>;
+    using uniform_buffer = typed_buffer<buffer_type::uniform>;
 
     // Type erased buffer type that can't be moved into a typed buffer object
     struct any_buffer : buffer

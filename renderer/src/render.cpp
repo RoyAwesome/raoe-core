@@ -58,135 +58,13 @@ namespace raoe::render
 
     static std::array<uint8, 6> plane_indices = {0, 1, 2, 2, 3, 0};
 
-    std::shared_ptr<shader::shader> create_error_shader()
-    {
-        static std::string_view vertex_shader_template {
-            "#version 460 core\n"
-            "layout(location=0) uniform mat4 mvp;\n"
-            "layout(location=1, binding=0) uniform sampler2D tex;\n"
-            "$${DEFINES}\n"
-            "$${ATTRIBUTES}\n"
-
-            "layout(location=0) out vec3 vPos0;\n"
-            "#if USE_NORMALS\n"
-            "layout(location=1) out vec3 vNorm0;\n"
-            "#endif\n"
-            "layout(location=2) out vec2 vUV0;\n"
-
-            "void main()\n"
-            "{\n"
-            "    gl_Position = mvp * vec4(aPos0, 1.0);\n"
-            "    vPos0 = aPos0;\n"
-            "   #if USE_NORMALS\n"
-            "    vNorm0 = aNorm0;\n"
-            "   #endif\n"
-            "   #if USE_UV0\n"
-            "    vUV0 = aUV0;\n"
-            "   #else\n"
-            "    vUV0 = ((vPos0 + 0.5) / vec3(textureSize(tex, 0), 1)).xy;\n"
-            "   #endif\n"
-            "}\n"};
-
-        static std::string_view fragment_shader_source {
-            "#version 460 core\n"
-            "layout(location=0) uniform mat4 mvp;\n"
-            "layout(location=1, binding=0) uniform sampler2D tex;\n"
-            "$${DEFINES}\n"
-            "$${ATTRIBUTES}\n"
-
-            "layout(location=0) out vec4 oColor;\n"
-
-            "void main()\n"
-            "{\n"
-            "    vec4 object_color = texture(tex, aUV0);\n"
-
-            "    float ambient_light = 0.1;\n"
-            "    vec3 diffuse_light = vec3(0.7, 0.7, 0.7);\n"
-            "    #if USE_NORMALS\n"
-            "    vec3 light_direction = normalize(vec3(2.0, 2.0, 2.0) - aPos0);\n"
-            "    float intensity = max(dot(normalize(aNorm0), light_direction), 0);\n"
-            "    diffuse_light *= intensity;\n"
-            "    #endif\n"
-            "    object_color.rgb *= (vec3(ambient_light) + diffuse_light);\n"
-            "    oColor = object_color;\n"
-            "}\n"};
-
-        // TODO: Replace this with glsl-ifying some shader inputs
-
-        std::string layout_str;
-        const auto elements = renderer_type_of<simple_vertex>::elements();
-        // Create names for each element
-        std::unordered_map<type_hint, int32> hint_counts;
-        for(int i = 0; i < elements.size(); i++)
-        {
-            if(elements[i].hint == type_hint::none || elements[i].hint == type_hint::count)
-            {
-                continue;
-            }
-            int32 count = 0;
-            if(hint_counts.contains(elements[i].hint))
-            {
-                count = hint_counts[elements[i].hint];
-            }
-            hint_counts[elements[i].hint] = count + 1;
-
-            std::string_view variable_name;
-            switch(elements[i].hint)
-            {
-                case type_hint::position: variable_name = "aPos"; break;
-                case type_hint::color: variable_name = "aCol"; break;
-                case type_hint::normal: variable_name = "aNorm"; break;
-                case type_hint::uv: variable_name = "aUV"; break;
-                case type_hint::tangent: variable_name = "aTang"; break;
-                case type_hint::bitangent: variable_name = "aBitang"; break;
-                default: panic("Unknown type hint {}", underlying(elements[i].hint));
-            }
-            std::string type_name = std::format("{}", elements[i].type);
-            string::replace_all(type_name, "renderer_type::", "");
-            layout_str += std::format("layout(location = {}) in {} {}{};\n", i, type_name, variable_name, count);
-        }
-
-        std::string defines_string;
-        if(hint_counts.contains(type_hint::normal))
-        {
-            defines_string += "#define USE_NORMALS 1\n";
-        }
-        else
-        {
-            defines_string += "#define USE_NORMALS 0\n";
-        }
-
-        if(hint_counts.contains(type_hint::uv))
-        {
-            defines_string += "#define USE_UV0 1\n";
-        }
-        else
-        {
-            defines_string += "#define USE_UV0 0\n";
-        }
-
-        std::string vertex_shader {
-            vertex_shader_template}; // make a copy of the vertex shader source because we're going to specialize it
-
-        string::replace_all(vertex_shader, "$${ATTRIBUTES}", layout_str);
-        string::replace_all(vertex_shader, "$${DEFINES}", defines_string);
-
-        std::string fragment_shader {fragment_shader_source};
-        string::replace_all(fragment_shader, "$${ATTRIBUTES}", layout_str);
-        string::replace_all(fragment_shader, "$${DEFINES}", defines_string);
-
-        spdlog::info("Fragment Shader: \n{}", fragment_shader);
-        spdlog::info("Vertex Shader: \n{}", vertex_shader);
-
-        return shader::glsl_builder("Error Shader")
-            .add_module_source<shader::shader_type::vertex>(vertex_shader)
-            .add_module_source<shader::shader_type::fragment>(fragment_shader)
-            .build_sync();
-    }
-
     static std::optional<render_context> _static_render_context;
     void set_render_context(const render_context& ctx)
     {
+        check_if(ctx.error_shader != nullptr, "Error shader is null");
+        check_if(ctx.error_texture != nullptr, "Error texture is null");
+        check_if(ctx.generic_2d_shader != nullptr, "Generic 2D shader is null");
+        check_if(!!ctx.load_callback, "Load callback is null");
         _static_render_context = ctx;
     }
     render_context& get_render_context()

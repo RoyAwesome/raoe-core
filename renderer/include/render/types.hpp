@@ -89,8 +89,8 @@ namespace raoe::render
     {
         renderer_type type = renderer_type::none;
         std::size_t offset = 0;
-        std::size_t size = 0;
         type_hint hint = type_hint::none;
+        std::size_t array_size = 1;
     };
 
     /*  Renderer Type Of
@@ -120,11 +120,9 @@ namespace raoe::render
             }
         };
 
-        This will allow the renderer to know how to layout the vertex buffer for the simple_vertex type.
-
-        TODO: This allows the type to be used as a uniform in shaders.
+        This will allow the renderer to know how to lay out the vertex buffer for the simple_vertex type.
     */
-    template<typename T>
+    template<typename>
     struct renderer_type_of
     {
         static_assert(false, "Specialization required for vertex_layout_of");
@@ -143,11 +141,21 @@ namespace raoe::render
         static std::span<const type_description> elements()
         {
             static constexpr std::array<const type_description, 3> ele = {
-                type_description {renderer_type::vec3, offsetof(simple_vertex, position), sizeof(glm::vec3),
-                                  type_hint::position                                                                     },
-                type_description {renderer_type::vec3, offsetof(simple_vertex, normal),   sizeof(glm::vec3),
-                                  type_hint::normal                                                                       },
-                type_description {renderer_type::vec2, offsetof(simple_vertex, uv),       sizeof(glm::vec2), type_hint::uv},
+                type_description {
+                                  .type = renderer_type::vec3,
+                                  .offset = offsetof(simple_vertex, position),
+                                  .hint = type_hint::position,
+                                  },
+                type_description {
+                                  .type = renderer_type::vec3,
+                                  .offset = offsetof(simple_vertex,                                                                   normal),
+                                  .hint = type_hint::normal,
+                                  },
+                type_description {
+                                  .type = renderer_type::vec2,
+                                  .offset = offsetof(simple_vertex,       uv),
+                                  .hint = type_hint::uv,
+                                  },
             };
             return ele;
         }
@@ -166,14 +174,26 @@ namespace raoe::render
         static std::span<const type_description> elements()
         {
             static constexpr std::array<const type_description, 4> ele = {
-                type_description {renderer_type::vec3,  offsetof(vertex_pos_uv_color_normal, position),
-                                  sizeof(glm::vec3),                                                                       type_hint::position},
-                type_description {renderer_type::vec2,  offsetof(vertex_pos_uv_color_normal, uv),       sizeof(glm::vec2),
-                                  type_hint::uv                                                                                               },
-                type_description {renderer_type::color, offsetof(vertex_pos_uv_color_normal, color),
-                                  sizeof(glm::u8vec4),                                                                     type_hint::color   },
-                type_description {renderer_type::vec3,  offsetof(vertex_pos_uv_color_normal, normal),   sizeof(glm::vec3),
-                                  type_hint::normal                                                                                           },
+                type_description {
+                                  .type = renderer_type::vec3,
+                                  .offset = offsetof(vertex_pos_uv_color_normal, position),
+                                  .hint = type_hint::position,
+                                  },
+                type_description {
+                                  .type = renderer_type::vec2,
+                                  .offset = offsetof(vertex_pos_uv_color_normal,                                                                                uv),
+                                  .hint = type_hint::uv,
+                                  },
+                type_description {
+                                  .type = renderer_type::color,
+                                  .offset = offsetof(vertex_pos_uv_color_normal,                        color),
+                                  .hint = type_hint::color,
+                                  },
+                type_description {
+                                  .type = renderer_type::vec3,
+                                  .offset = offsetof(vertex_pos_uv_color_normal, normal),
+                                  .hint = type_hint::normal,
+                                  },
             };
             return ele;
         }
@@ -182,14 +202,25 @@ namespace raoe::render
     constexpr std::size_t elements_hash(const std::span<const type_description> elements)
     {
         std::size_t hash = 0;
-        for(const auto& [type, offset, size, hint] : elements)
+        for(const auto& [type, offset, hint, array_size] : elements)
         {
             hash = hash_combine(hash, underlying(type));
             hash = hash_combine(hash, offset);
-            hash = hash_combine(hash, size);
             hash = hash_combine(hash, underlying(hint));
+            hash = hash_combine(hash, array_size);
         }
         return hash;
+    }
+
+    inline std::string elements_debug_string(const std::span<const type_description> elements)
+    {
+        std::string result;
+        for(const auto& [type, offset, hint, array_size] : elements)
+        {
+            result += std::format("Type: {}, Offset: {}, Hint: {}, Array Size: {}\n", underlying(type), offset,
+                                  underlying(hint), array_size);
+        }
+        return result;
     }
 
     template<typename T>
@@ -231,6 +262,64 @@ namespace raoe::render
     inline constexpr auto shader_uniform_type_v<glm::mat3> = renderer_type::mat3;
     template<>
     inline constexpr auto shader_uniform_type_v<glm::mat4> = renderer_type::mat4;
+    template<>
+    inline constexpr auto shader_uniform_type_v<glm::u8vec4> = renderer_type::color;
+
+    template<renderer_type TType>
+    inline constexpr auto shader_uniform_size_v = 0;
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::u8> = sizeof(int8);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::i8> = sizeof(uint8);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::u16> = sizeof(uint16);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::i16> = sizeof(int16);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::u32> = sizeof(uint32);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::i32> = sizeof(int32);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::f32> = sizeof(float);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::f64> = sizeof(double);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::vec2> = sizeof(glm::vec2);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::vec3> = sizeof(glm::vec3);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::vec4> = sizeof(glm::vec4);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::mat2> = sizeof(glm::mat2);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::mat3> = sizeof(glm::mat3);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::mat4> = sizeof(glm::mat4);
+    template<>
+    inline constexpr auto shader_uniform_size_v<renderer_type::color> = sizeof(glm::u8vec4);
+
+    constexpr std::size_t shader_uniform_size(const renderer_type type)
+    {
+        switch(type)
+        {
+            case renderer_type::u8: return shader_uniform_size_v<renderer_type::u8>;
+            case renderer_type::i8: return shader_uniform_size_v<renderer_type::i8>;
+            case renderer_type::u16: return shader_uniform_size_v<renderer_type::u16>;
+            case renderer_type::i16: return shader_uniform_size_v<renderer_type::i16>;
+            case renderer_type::u32: return shader_uniform_size_v<renderer_type::u32>;
+            case renderer_type::i32: return shader_uniform_size_v<renderer_type::i32>;
+            case renderer_type::f32: return shader_uniform_size_v<renderer_type::f32>;
+            case renderer_type::f64: return shader_uniform_size_v<renderer_type::f64>;
+            case renderer_type::vec2: return shader_uniform_size_v<renderer_type::vec2>;
+            case renderer_type::vec3: return shader_uniform_size_v<renderer_type::vec3>;
+            case renderer_type::vec4: return shader_uniform_size_v<renderer_type::vec4>;
+            case renderer_type::mat2: return shader_uniform_size_v<renderer_type::mat2>;
+            case renderer_type::mat3: return shader_uniform_size_v<renderer_type::mat3>;
+            case renderer_type::mat4: return shader_uniform_size_v<renderer_type::mat4>;
+            case renderer_type::color: return shader_uniform_size_v<renderer_type::color>;
+            default: return 0;
+        }
+    }
 
     template<typename T>
     concept index_buffer_type =
@@ -243,7 +332,9 @@ namespace raoe::render
         static std::span<const type_description> elements()
         {
             static const std::array<const type_description, 1> ele = {
-                type_description {shader_uniform_type_v<T>, 0, sizeof(T)}
+                type_description {
+                                  .type = shader_uniform_type_v<T>,
+                                  }
             };
 
             return ele;

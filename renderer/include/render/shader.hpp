@@ -26,6 +26,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "core/stream.hpp"
 
+#include "render/buffer.hpp"
 #include "texture.hpp"
 #include "types.hpp"
 
@@ -170,12 +171,14 @@ namespace raoe::render::shader
         [[nodiscard]] renderer_type type() const { return m_type; }
         [[nodiscard]] uint8 texture_unit() const { return m_texture_unit; }
         [[nodiscard]] int32 native_id() const { return m_native_id; }
+        [[nodiscard]] std::string_view name() const { return m_name; }
 
       private:
-        explicit uniform(const int32 id, const renderer_type type, const uint8 texture_unit = 0)
+        explicit uniform(std::string name, const int32 id, const renderer_type type, const uint8 texture_unit = 0)
             : m_type(type)
             , m_texture_unit(texture_unit)
             , m_native_id(id)
+            , m_name(std::move(name))
         {
         }
         void set_uniform(std::span<const std::byte> data, int32 element_count = 1) const;
@@ -184,6 +187,36 @@ namespace raoe::render::shader
         renderer_type m_type = renderer_type::none;
         uint8 m_texture_unit = 0;
         int32 m_native_id;
+        std::string m_name;
+    };
+
+    struct uniform_block
+    {
+        friend class shader;
+
+        uniform_block& operator=(const uniform_buffer& buffer);
+
+        [[nodiscard]] std::string_view name() const { return m_name; }
+        [[nodiscard]] int32 binding() const { return m_binding; }
+        [[nodiscard]] std::span<const type_description> block_type_description() const
+        {
+            return m_block_type_description;
+        }
+
+      private:
+        explicit uniform_block(const std::string_view name, const int32 native_id, const int32 binding,
+                               const std::vector<type_description>& block_type_description)
+            : m_name(name)
+            , m_native_id(native_id)
+            , m_binding(binding)
+            , m_block_type_description(block_type_description)
+        {
+        }
+
+        std::string m_name;
+        int32 m_native_id = -1;
+        int32 m_binding = -1;
+        std::vector<type_description> m_block_type_description;
     };
 
     struct input
@@ -230,9 +263,14 @@ namespace raoe::render::shader
 
         [[nodiscard]] std::ranges::range auto uniforms() { return m_uniforms | std::views::values; }
         [[nodiscard]] std::ranges::random_access_range auto inputs() const { return m_inputs; }
+        [[nodiscard]] std::ranges::range auto uniform_blocks() { return m_uniform_blocks | std::views::values; }
+        [[nodiscard]] std::string_view debug_name() const { return m_debug_name; }
 
         // Binds the shader for use.
         void use() const;
+
+        // Returns a string useful for debugging the shader, including its uniforms, inputs, and uniform blocks.
+        std::string debug_string() const;
 
       private:
         explicit shader(const uint32 id, std::string debug_name)
@@ -248,6 +286,8 @@ namespace raoe::render::shader
         uint32 m_native_id = 0;
         std::unordered_map<uint32, uniform> m_uniforms = {};
         std::unordered_map<std::string, uint32> m_uniform_names = {};
+        std::unordered_map<uint32, uniform_block> m_uniform_blocks = {};
+        std::unordered_map<std::string, uint32> m_uniform_block_names = {};
         std::vector<input> m_inputs = {};
         std::string m_debug_name = {};
     };

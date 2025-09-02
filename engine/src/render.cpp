@@ -52,6 +52,8 @@ void init_render(const flecs::iter it)
                                   .load_module<shader_type::fragment>("core/shaders/error.frag.glsl")
                                   .build_sync();
 
+    spdlog::info(error_shader->debug_string());
+
     spdlog::info("Building Generic 2D Shader");
     const auto generic_2d_shader = glsl_builder("Generic 2D Shader")
                                        .with_file_loader(raoe::engine::sys::load_string_from_pack)

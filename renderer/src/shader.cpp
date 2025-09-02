@@ -179,10 +179,40 @@ namespace raoe::render::shader
             glUseProgram(native_id());
         }
     }
+    std::string shader::debug_string() const
+    {
+        std::stringstream ss;
+        ss << std::format("Shader '{}' (ID: {})\n", m_debug_name, m_native_id);
+        ss << "Uniforms:\n";
+        for(const auto& [location, uniform] : m_uniforms)
+        {
+
+            ss << std::format("  Name: {}, Location: {}, Type: {}, Binding: {}\n", uniform.name(), location,
+                              uniform.type(), uniform.native_id());
+        }
+        ss << "Uniform Blocks:\n";
+        for(const auto& [binding, block] : m_uniform_blocks)
+        {
+            ss << std::format("  Binding: {} name: {}\n", binding, block.name());
+            for(const auto& [type, offset, hint, array_size] : block.m_block_type_description)
+            {
+                ss << std::format("    Type: {}, Offset: {}, Array Size: {}, Hint: {}\n", type, offset, array_size,
+                                  underlying(hint));
+            }
+        }
+        ss << "Inputs:\n";
+        for(const auto& input : m_inputs)
+        {
+            ss << std::format("  Name: {}, Location: {}, Type: {}\n", input.name(), input.location(), input.type());
+        }
+
+        return ss.str();
+    }
     std::shared_ptr<shader> shader::make_shared(const uint32 id, std::string debug_name)
     {
-
-        return {new shader(id, std::move(debug_name)), [](shader* ptr) {
+        // ReSharper disable once CppDFAMemoryLeak
+        // Use a custom deleter to delete the shader when the shared_ptr is destroyed
+        return {new shader(id, std::move(debug_name)), [](const shader* ptr) {
                     if(ptr->m_native_id != 0)
                     {
                         glDeleteProgram(ptr->m_native_id);
@@ -201,29 +231,96 @@ namespace raoe::render::shader
             std::array<GLint, 4> properties {};
             glGetProgramResourceiv(m_native_id, GL_UNIFORM, i, uniform_properties.size(), uniform_properties.data(),
                                    properties.size(), nullptr, properties.data());
-
+            auto [name_length, gl_type, array_size, location] = properties;
             std::string name;
-            if(properties[0] > 0)
+            if(name_length > 0)
             {
-                name = std::string(properties[0], '\0');
+                name = std::string(name_length, '\0');
                 glGetProgramResourceName(m_native_id, GL_UNIFORM, i, static_cast<GLsizei>(name.size()), nullptr,
                                          name.data());
                 name.pop_back(); // Remove the \0
-                m_uniform_names.emplace(name, properties[3]);
             }
 
             // Acquire the binding point for textures.
             uint8 binding = 0;
-            const renderer_type utype = gl_type_to_renderer_type(properties[1]);
+            const renderer_type utype = gl_type_to_renderer_type(gl_type);
             if(utype == renderer_type::texture1d || utype == renderer_type::texture2d ||
                utype == renderer_type::texture3d || utype == renderer_type::texture_cube ||
                utype == renderer_type::texture1d_array || utype == renderer_type::texture2d_array ||
                utype == renderer_type::texture_cube_array)
             {
-                glGetUniformiv(m_native_id, properties[3], reinterpret_cast<GLint*>(&binding));
+                glGetUniformiv(m_native_id, location, reinterpret_cast<GLint*>(&binding));
             }
 
-            m_uniforms.emplace(properties[3], uniform(properties[3], utype, binding));
+            m_uniforms.emplace(properties[3], uniform(name, location, utype, binding));
+            if(!name.empty())
+            {
+                m_uniform_names.emplace(name, location);
+            }
+        }
+
+        // get the uniform blocks
+        GLint uniform_block_count = 0;
+        glGetProgramInterfaceiv(m_native_id, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &uniform_block_count);
+        constexpr std::array<GLenum, 3> uniform_block_properties = {GL_NAME_LENGTH, GL_NUM_ACTIVE_VARIABLES,
+                                                                    GL_BUFFER_BINDING};
+        constexpr std::array<GLenum, 1> uniform_block_index = {GL_ACTIVE_VARIABLES};
+        constexpr std::array<GLenum, 5> uniform_properties_ub = {GL_NAME_LENGTH, GL_TYPE, GL_ARRAY_SIZE, GL_LOCATION,
+                                                                 GL_OFFSET};
+        for(int32 block_index = 0; block_index < uniform_block_count; block_index++)
+        {
+            std::array<GLint, 3> block_properties {};
+            glGetProgramResourceiv(m_native_id, GL_UNIFORM_BLOCK, block_index, uniform_block_properties.size(),
+                                   uniform_block_properties.data(), block_properties.size(), nullptr,
+                                   block_properties.data()); // query the data about the block
+            auto [name_length, num_active_uniforms, binding] = block_properties;
+
+            // get the name of the block
+            std::string block_name(name_length, '\0');
+            if(name_length > 0)
+            {
+                glGetProgramResourceName(m_native_id, GL_UNIFORM_BLOCK, block_index,
+                                         static_cast<GLsizei>(block_name.size()), nullptr, block_name.data());
+                block_name.pop_back(); // Remove the \0
+            }
+            std::vector<type_description> block_type_description;
+            if(num_active_uniforms > 0)
+            {
+
+                // Get the type description of each uniform.
+
+                std::vector<GLint> block_uniforms(num_active_uniforms);
+                glGetProgramResourceiv(m_native_id, GL_UNIFORM_BLOCK, block_index, uniform_block_index.size(),
+                                       uniform_block_index.data(), static_cast<GLint>(block_uniforms.size()), nullptr,
+                                       block_uniforms.data()); // get the indices of the active uniforms in the block
+
+                for(int32 uniform_index = 0; uniform_index < num_active_uniforms; uniform_index++)
+                {
+                    std::array<GLint, 5> block_uniform_properties {};
+                    glGetProgramResourceiv(m_native_id, GL_UNIFORM, block_uniforms[uniform_index],
+                                           uniform_properties_ub.size(), uniform_properties_ub.data(),
+                                           block_uniform_properties.size(), nullptr,
+                                           block_uniform_properties.data()); // get the properties of the uniform
+                    auto [name_length, gl_type, array_size, location, offset] = block_uniform_properties;
+                    std::string name(name_length, '\0');
+                    if(name_length > 0)
+                    {
+                        glGetProgramResourceName(m_native_id, GL_UNIFORM, block_uniforms[uniform_index],
+                                                 static_cast<GLsizei>(name.size()), nullptr, name.data());
+                        name.pop_back(); // Remove the \0
+                    }
+                    const renderer_type utype = gl_type_to_renderer_type(gl_type);
+                    block_type_description.emplace_back(type_description {
+                        .type = utype,
+                        .offset = static_cast<std::size_t>(offset),
+                        .hint = type_hint::none,
+                        .array_size = static_cast<std::size_t>(array_size),
+                    });
+                }
+            }
+
+            m_uniform_blocks.emplace(binding, uniform_block(block_name, block_index, binding, block_type_description));
+            m_uniform_block_names.emplace(block_name, binding);
         }
 
         // get the vertex attributes
@@ -304,6 +401,22 @@ namespace raoe::render::shader
     void uniform::set_uniform(const texture& texture) const
     {
         glBindTextureUnit(m_texture_unit, texture.native_id());
+    }
+    uniform_block& uniform_block::operator=(const uniform_buffer& buffer)
+    {
+        // check that the buffer type matches the block type
+        const auto& block_type = block_type_description();
+        const auto& buffer_type = buffer.elements();
+        check_if(elements_hash(block_type) == elements_hash(buffer_type),
+                 "Uniform block '{}' type description does not match the buffer type description (block size: {}, "
+                 "buffer size: {})",
+                 name(), block_type.size(), buffer_type.size());
+
+        check_if(buffer.is_valid(), "Uniform buffer is not valid");
+
+        // bind the buffer to the binding point
+        glBindBufferBase(GL_UNIFORM_BUFFER, m_binding, buffer.native_buffer());
+        return *this;
     }
 
 }
