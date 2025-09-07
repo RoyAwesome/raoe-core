@@ -255,15 +255,45 @@ namespace raoe::render::shader
         template<shader_lang TLang>
         friend struct basic_builder;
 
-        [[nodiscard]] uniform& operator[](std::string_view name);
-        [[nodiscard]] uniform& operator[](uint32 location);
+        struct uniform_accessor
+        {
+            uniform& operator[](std::string_view name) const;
+            uniform& operator[](uint32 location) const;
+
+          private:
+            [[nodiscard]] uniform* direct_access(uint32 location) const;
+            friend class shader;
+            explicit uniform_accessor(shader& shader)
+                : m_shader(shader)
+            {
+            }
+            shader& m_shader;
+        };
+
+        struct uniform_block_accessor
+        {
+            uniform_block& operator[](std::string_view name) const;
+            uniform_block& operator[](uint32 binding) const;
+
+          private:
+            [[nodiscard]] uniform_block* direct_access(uint32 binding) const;
+            friend class shader;
+            explicit uniform_block_accessor(shader& shader)
+                : m_shader(shader)
+            {
+            }
+            shader& m_shader;
+        };
+
+        uniform_accessor uniforms() { return uniform_accessor(*this); }
+        uniform_block_accessor uniform_blocks() { return uniform_block_accessor(*this); }
 
         [[nodiscard]] uint32 native_id() const { return m_native_id; }
         [[nodiscard]] bool ready() const { return m_native_id != 0; }
 
-        [[nodiscard]] std::ranges::range auto uniforms() { return m_uniforms | std::views::values; }
-        [[nodiscard]] std::ranges::random_access_range auto inputs() const { return m_inputs; }
-        [[nodiscard]] std::ranges::range auto uniform_blocks() { return m_uniform_blocks | std::views::values; }
+        [[nodiscard]] std::ranges::range auto uniforms_range() { return m_uniforms | std::views::values; }
+        [[nodiscard]] std::ranges::random_access_range auto inputs_range() const { return m_inputs; }
+        [[nodiscard]] std::ranges::range auto uniform_block_range() { return m_uniform_blocks | std::views::values; }
         [[nodiscard]] std::string_view debug_name() const { return m_debug_name; }
 
         // Binds the shader for use.

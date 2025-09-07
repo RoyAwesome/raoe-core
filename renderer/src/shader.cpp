@@ -139,34 +139,85 @@ namespace raoe::render::shader
         }
     }
 
-    uniform& shader::operator[](std::string_view name)
+    uniform& shader::uniform_accessor::operator[](std::string_view name) const
     {
-        if(!ready())
+        if(!m_shader.ready())
         {
-            panic("Shader {} - trying to get a uniform when the shader is not compiled", m_debug_name);
+            panic("Shader {} - trying to get a uniform when the shader is not compiled", m_shader.m_debug_name);
         }
 
-        const auto l_it = m_uniform_names.find(std::string(name));
-        if(l_it == m_uniform_names.end())
+        const auto l_it = m_shader.m_uniform_names.find(std::string(name));
+        if(l_it == m_shader.m_uniform_names.end())
         {
-            panic("Shader {} - Uniform not found: {}", m_debug_name, name);
+            panic("Shader {} - Uniform not found: {}", m_shader.m_debug_name, name);
         }
-        return this->operator[](l_it->second);
+        if(auto* u = direct_access(l_it->second); u != nullptr)
+        {
+            return *u;
+        }
+        panic("Shader {} - Uniform not found: {}", m_shader.m_debug_name, name);
     }
-
-    uniform& shader::operator[](uint32 location)
+    uniform& shader::uniform_accessor::operator[](uint32 location) const
     {
-        if(!ready())
+        if(!m_shader.ready())
         {
-            panic("Shader {} - trying to get a uniform when the shader is not compiled", m_debug_name);
+            panic("Shader {} - trying to get a uniform when the shader is not compiled", m_shader.m_debug_name);
         }
 
-        const auto it = m_uniforms.find(location);
-        if(it == m_uniforms.end())
+        if(auto* u = direct_access(location); u != nullptr)
         {
-            panic("Shader {} - Uniform not found: {}", m_debug_name, location);
+            return *u;
         }
-        return it->second;
+        panic("Shader {} - Uniform not found: {}", m_shader.m_debug_name, location);
+    }
+    uniform* shader::uniform_accessor::direct_access(const uint32 location) const
+    {
+        const auto it = m_shader.m_uniforms.find(location);
+        if(it == m_shader.m_uniforms.end())
+        {
+            return nullptr;
+        }
+        return &it->second;
+    }
+    uniform_block& shader::uniform_block_accessor::operator[](std::string_view name) const
+    {
+        if(!m_shader.ready())
+        {
+            panic("Shader {} - trying to get a uniform when the shader is not compiled", m_shader.m_debug_name);
+        }
+
+        const auto l_it = m_shader.m_uniform_names.find(std::string(name));
+        if(l_it == m_shader.m_uniform_names.end())
+        {
+            panic("Shader {} - Uniform not found: {}", m_shader.m_debug_name, name);
+        }
+        if(auto* u = direct_access(l_it->second); u != nullptr)
+        {
+            return *u;
+        }
+        panic("Shader {} - Uniform not found: {}", m_shader.m_debug_name, name);
+    }
+    uniform_block& shader::uniform_block_accessor::operator[](uint32 binding) const
+    {
+        if(!m_shader.ready())
+        {
+            panic("Shader {} - trying to get a uniform when the shader is not compiled", m_shader.m_debug_name);
+        }
+
+        if(auto* u = direct_access(binding); u != nullptr)
+        {
+            return *u;
+        }
+        panic("Shader {} - Uniform not found: {}", m_shader.m_debug_name, binding);
+    }
+    uniform_block* shader::uniform_block_accessor::direct_access(const uint32 binding) const
+    {
+        const auto it = m_shader.m_uniform_blocks.find(binding);
+        if(it == m_shader.m_uniform_blocks.end())
+        {
+            return nullptr;
+        }
+        return &it->second;
     }
 
     void shader::use() const
@@ -418,7 +469,6 @@ namespace raoe::render::shader
         glBindBufferBase(GL_UNIFORM_BUFFER, m_binding, buffer.native_buffer());
         return *this;
     }
-
 }
 
 std::string preprocess_r(std::string source, const raoe::render::shader::glsl::file_load_callback_t& load_file_callback,
@@ -508,8 +558,8 @@ std::string preprocess_r(std::string source, const raoe::render::shader::glsl::f
                             continue;
                         }
                     }
-                    // Always add the included files even if they dont have a #pragma once, as we use the count later
-                    // for file counting
+                    // Always add the included files even if they dont have a #pragma once, as we use the count
+                    // later for file counting
                     included_files.insert(include_path);
 
                     // remove the #pragma once directive if they exists

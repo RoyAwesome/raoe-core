@@ -152,8 +152,8 @@ namespace raoe::render
             shader::shader* s = shader ? shader.get() : get_render_context().error_shader.get();
             // write the uniforms
             s->use();
-            (*s)["mvp"] = camera.get_camera_matrix() * render_transform.cached_world_transform;
-            (*s)["tex"] = *get_render_context().error_texture;
+            s->uniforms()["mvp"] = camera.get_camera_matrix() * render_transform.cached_world_transform;
+            s->uniforms()["tex"] = *get_render_context().error_texture;
 
             render_mesh_element(*mesh_element);
         }
