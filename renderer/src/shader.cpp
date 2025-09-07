@@ -244,12 +244,12 @@ namespace raoe::render::shader
         ss << "Uniform Blocks:\n";
         for(const auto& [binding, block] : m_uniform_blocks)
         {
-            ss << std::format("  Binding: {} name: {}\n", binding, block.name());
-            for(const auto& [type, offset, hint, array_size] : block.m_block_type_description)
+            ss << std::format("  Binding: {} name: {}", binding, block.name());
+            for(const auto& desc : block.m_block_type_description)
             {
-                ss << std::format("    Type: {}, Offset: {}, Array Size: {}, Hint: {}\n", type, offset, array_size,
-                                  underlying(hint));
+                ss << std::format("\n\t{}", desc);
             }
+            ss << "\n";
         }
         ss << "Inputs:\n";
         for(const auto& input : m_inputs)
