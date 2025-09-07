@@ -138,6 +138,8 @@ namespace raoe::engine
             error_shader,
             default_material,
             immediate_mode_shader,
+            engine_ubo,
+            camera_ubo,
         };
     }
 

@@ -458,10 +458,11 @@ namespace raoe::render::shader
         // check that the buffer type matches the block type
         const auto& block_type = block_type_description();
         const auto& buffer_type = buffer.elements();
-        check_if(elements_hash(block_type) == elements_hash(buffer_type),
+
+        check_if(elements_equal(block_type, buffer_type),
                  "Uniform block '{}' type description does not match the buffer type description (block size: {}, "
-                 "buffer size: {})",
-                 name(), block_type.size(), buffer_type.size());
+                 "buffer size: {}; \n DBG \n\tblock_type: {} \n\t buffer_type: {})",
+                 name(), block_type.size(), buffer_type.size(), block_type, buffer_type);
 
         check_if(buffer.is_valid(), "Uniform buffer is not valid");
 

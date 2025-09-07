@@ -23,7 +23,7 @@ layout(location=2) in vec2 inUV;
 
 
 void main() {
-    gl_Position = vec4(inPosition, 1) * engine_uniforms.projection_matrix * engine_uniforms.camera_matrix;
+    gl_Position = vec4(inPosition, 1) * camera.proj_cam;
     attributes.aNorm0 = inNormal;
     attributes.aUV0 = inUV;
 }

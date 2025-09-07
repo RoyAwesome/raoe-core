@@ -31,7 +31,7 @@ namespace raoe::render
     namespace immediate
     {
         void begin_immediate_batch();
-        void draw_immediate_batch();
+        void draw_immediate_batch(const uniform_buffer& engine_ubo, const uniform_buffer& camera_ubo);
     }
 
 }

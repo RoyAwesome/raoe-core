@@ -136,8 +136,11 @@ void raoe::render::immediate::begin_immediate_batch()
     // Reset the immediate data for a new batch
     immediate_data = {};
 }
-void raoe::render::immediate::draw_immediate_batch()
+void raoe::render::immediate::draw_immediate_batch(const uniform_buffer& engine_ubo, const uniform_buffer& camera_ubo)
 {
+    get_render_context().generic_2d_shader->use();
+    get_render_context().generic_2d_shader->uniform_blocks()[0] = engine_ubo; // Engine UBO is at binding point 0
+    get_render_context().generic_2d_shader->uniform_blocks()[1] = camera_ubo; // Camera UBO is at binding point 1
     for(const auto& [mesh_builder, texture, next_transform, next_depth] : immediate_data.batches)
     {
         if(!texture->has_gpu_data())

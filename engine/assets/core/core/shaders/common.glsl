@@ -20,11 +20,15 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #inject <_RAOE_ENGINE_VERTEX_FORMAT_DEFINES>
 
 layout(std140, binding = 0) uniform EngineUniforms {
-    mat4 camera_matrix;
-    mat4 projection_matrix;
     vec2 screen_size;
     float time;
 } engine_uniforms;
+
+layout(std140, binding = 1) uniform Camera {
+    mat4 camera_matrix;
+    mat4 projection_matrix;
+    mat4 proj_cam;// projection_matrix * camera_matrix, for convenience
+} camera;
 
 #if _RAOE_STAGE_VERTEX || _RAOE_STAGE_FRAGMENT
 #if _RAOE_STAGE_VERTEX

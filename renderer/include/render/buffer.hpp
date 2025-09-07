@@ -109,6 +109,14 @@ namespace raoe::render
         {
         }
 
+        template<type_described T>
+            requires(TBufferType == buffer_type::uniform)
+        explicit typed_buffer(const T& data, const bool in_dynamic = false)
+            : buffer(in_dynamic)
+        {
+            set_data(data);
+        }
+
         typed_buffer& operator=(typed_buffer&& other) noexcept
         {
             buffer::operator=(std::forward<buffer>(other));
@@ -126,13 +134,14 @@ namespace raoe::render
                               "Index buffer must be uint32, uint16, or uint8");
             }
 
-            buffer::set_data(std::as_bytes(data), renderer_type_of<T>::elements(), data.size(), sizeof(T));
+            buffer::set_data(std::as_bytes(data), renderer_type_of<std::remove_cvref_t<T>>::elements(), data.size(),
+                             sizeof(std::remove_cvref_t<T>));
         }
 
         template<type_described T>
         void set_data(const T& data)
         {
-            set_data(std::span<const T>(&data, 1));
+            set_data<const T>(std::span<const T>(&data, 1));
         }
 
         void set_data(const std::span<const std::byte> data, const std::span<const type_description> elements,

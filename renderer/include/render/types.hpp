@@ -125,7 +125,7 @@ namespace raoe::render
     template<typename>
     struct renderer_type_of
     {
-        static_assert(false, "Specialization required for vertex_layout_of");
+        static_assert(false, "Specialization required for renderer_type_of");
     };
 
     struct simple_vertex
@@ -168,6 +168,7 @@ namespace raoe::render
         glm::u8vec4 color;
         glm::vec3 normal;
     };
+
     template<>
     struct renderer_type_of<vertex_pos_uv_color_normal>
     {
@@ -212,20 +213,31 @@ namespace raoe::render
         return hash;
     }
 
-    inline std::string elements_debug_string(const std::span<const type_description> elements)
+    constexpr bool elements_equal(const std::span<const type_description> a,
+                                  const std::span<const type_description> b) noexcept
     {
-        std::string result;
-        for(const auto& [type, offset, hint, array_size] : elements)
+        if(a.size() != b.size())
         {
-            result += std::format("Type: {}, Offset: {}, Hint: {}, Array Size: {}\n", underlying(type), offset,
-                                  underlying(hint), array_size);
+            return false;
         }
-        return result;
+
+        for(std::size_t i = 0; i < a.size(); i++)
+        {
+            if(a[i].type != b[i].type || a[i].offset != b[i].offset || a[i].hint != b[i].hint ||
+               a[i].array_size != b[i].array_size)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     template<typename T>
     concept type_described = requires(T t) {
-        { renderer_type_of<std::remove_cv_t<T>>::elements() } -> std::convertible_to<std::span<const type_description>>;
+        {
+            renderer_type_of<std::remove_cvref_t<T>>::elements()
+        } -> std::convertible_to<std::span<const type_description>>;
     };
 
     template<type_described T>
@@ -376,3 +388,21 @@ RAOE_CORE_DECLARE_FORMATTER(
         case raoe::render::renderer_type::count: return format_to(ctx.out(), "renderer_type::count");
         default: return format_to(ctx.out(), "renderer_type::unknown");
     };)
+
+RAOE_CORE_DECLARE_FORMATTER(
+    raoe::render::type_hint, switch(value) {
+        case raoe::render::type_hint::none: return format_to(ctx.out(), "type_hint::none");
+        case raoe::render::type_hint::position: return format_to(ctx.out(), "type_hint::position");
+        case raoe::render::type_hint::normal: return format_to(ctx.out(), "type_hint::normal");
+        case raoe::render::type_hint::uv: return format_to(ctx.out(), "type_hint::uv");
+        case raoe::render::type_hint::color: return format_to(ctx.out(), "type_hint::color");
+        case raoe::render::type_hint::tangent: return format_to(ctx.out(), "type_hint::tangent");
+        case raoe::render::type_hint::bitangent: return format_to(ctx.out(), "type_hint::bitangent");
+        case raoe::render::type_hint::count: return format_to(ctx.out(), "type_hint::count");
+        default: return format_to(ctx.out(), "type_hint::unknown");
+    };)
+
+RAOE_CORE_DECLARE_FORMATTER(raoe::render::type_description,
+                            return format_to(ctx.out(),
+                                             "Type Description {{ type: {}, offset: {}, hint: {}, array_size: {} }}",
+                                             value.type, value.offset, value.hint, value.array_size);)

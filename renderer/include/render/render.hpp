@@ -53,11 +53,45 @@ namespace raoe::render
         {
         }
 
+        void set_projection_matrix(const glm::mat4& matrix) { projection_matrix = matrix; }
+        [[nodiscard]] const glm::mat4& get_projection_matrix() const { return projection_matrix; }
+
         void set_camera_matrix(const glm::mat4& matrix) { camera_matrix = matrix; }
         [[nodiscard]] const glm::mat4& get_camera_matrix() const { return camera_matrix; }
 
+        camera& look_at(const glm::vec3& position, const glm::vec3& target, const glm::vec3& up)
+        {
+            camera_matrix = glm::lookAt(position, target, up);
+            return *this;
+        }
+        camera& translate(const glm::vec3& translation)
+        {
+            camera_matrix = glm::translate(camera_matrix, translation);
+            return *this;
+        }
+        camera& rotate(const float angle, const glm::vec3& axis)
+        {
+            camera_matrix = glm::rotate(camera_matrix, angle, axis);
+            return *this;
+        }
+
+        camera& with_orthographic(const float left, const float right, const float bottom, const float top,
+                                  const float near = -1.0f, const float far = 1.0f)
+        {
+            projection_matrix = glm::ortho(left, right, bottom, top, near, far);
+            return *this;
+        }
+        camera& with_perspective(const float fov_y, const float aspect_ratio, const float near, const float far)
+        {
+            projection_matrix = glm::perspective(fov_y, aspect_ratio, near, far);
+            return *this;
+        }
+
+        [[nodiscard]] glm::mat4 get_view_projection_matrix() const { return projection_matrix * camera_matrix; }
+
       private:
         glm::mat4 camera_matrix = glm::identity<glm::mat4>();
+        glm::mat4 projection_matrix = glm::identity<glm::mat4>();
     };
 
     struct render_context

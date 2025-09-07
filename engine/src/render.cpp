@@ -36,6 +36,68 @@ void fill_injections_for_vertex_type(std::unordered_map<std::string, std::string
 {
 }
 
+struct engine_uniforms
+{
+    glm::vec2 screen_size = {0, 0};
+    float time = 0.0f;
+};
+
+template<>
+struct raoe::render::renderer_type_of<engine_uniforms>
+{
+    static std::span<const type_description> elements()
+    {
+        static constexpr std::array<const type_description, 2> ele = {
+            type_description {
+                              .type = renderer_type::vec2,
+                              .offset = offsetof(engine_uniforms, screen_size),
+                              },
+            type_description {
+                              .type = renderer_type::f32,
+                              .offset = offsetof(engine_uniforms,                                                                 time),
+                              },
+        };
+        return ele;
+    }
+};
+
+struct camera_uniform
+{
+    glm::mat4 camera_matrix = glm::identity<glm::mat4>();
+    glm::mat4 projection_matrix = glm::identity<glm::mat4>();
+    glm::mat4 proj_camera = glm::identity<glm::mat4>();
+};
+
+template<>
+struct raoe::render::renderer_type_of<camera_uniform>
+{
+    static std::span<const type_description> elements()
+    {
+        static constexpr std::array<const type_description, 3> ele = {
+            type_description {
+                              .type = renderer_type::mat4,
+                              .offset = offsetof(camera_uniform,                      camera_matrix),
+                              },
+            type_description {
+                              .type = renderer_type::mat4,
+                              .offset = offsetof(camera_uniform,                                                                                     projection_matrix),
+
+                              },
+            type_description {
+                              .type = renderer_type::mat4,
+                              .offset = offsetof(camera_uniform,proj_camera),
+
+                              },
+        };
+        return ele;
+    }
+};
+
+struct ubo
+{
+    std::shared_ptr<raoe::render::uniform_buffer> m_uniform_buffer;
+};
+
 void init_render(const flecs::iter it)
 {
     using namespace raoe::render::shader;
@@ -69,6 +131,14 @@ void init_render(const flecs::iter it)
 
     spdlog::info("Setting render context");
     raoe::render::set_render_context(ctx);
+
+    it.world()
+        .entity(raoe::engine::entities::engine_assets::engine_ubo)
+        .set<ubo>({std::make_shared<raoe::render::uniform_buffer>(engine_uniforms {})});
+
+    it.world()
+        .entity(raoe::engine::entities::engine_assets::camera_ubo)
+        .set<ubo>({std::make_shared<raoe::render::uniform_buffer>(camera_uniform {})});
 
     it.world().entity(raoe::engine::entities::engine::main_camera).add<raoe::render::camera>();
 
@@ -118,6 +188,7 @@ void compute_render_transform_2d(const flecs::entity e, raoe::render::render_tra
 void prepare_frame(flecs::iter itr)
 {
     raoe::render::clear_surface(raoe::render::colors::cornflower_blue);
+    // Prepare the engine UBO
 }
 
 void draw_frame(flecs::iter itr)
@@ -149,17 +220,37 @@ void draw_frame(flecs::iter itr)
 
 void tick_start(flecs::iter itr)
 {
+    itr.world()
+        .entity(raoe::engine::entities::engine_assets::engine_ubo)
+        .get<ubo>()
+        .m_uniform_buffer->set_data(
+            engine_uniforms {.screen_size = glm::vec2(raoe::render::get_render_context().surface_size),
+                             .time = itr.world().delta_time()});
     raoe::render::immediate::begin_immediate_batch();
 }
 
-void post_draw(flecs::iter itr)
+void post_draw(const flecs::iter itr)
 {
-    raoe::render::immediate::draw_immediate_batch();
+    const auto& camera = itr.world().entity(raoe::engine::entities::engine::main_camera).get<raoe::render::camera>();
+    const auto& [camera_ubo] = itr.world().entity(raoe::engine::entities::engine_assets::camera_ubo).get<ubo>();
+    const auto& [engine_ubo] = itr.world().entity(raoe::engine::entities::engine_assets::engine_ubo).get<ubo>();
+
+    raoe::check_if(!!camera_ubo, "Camera UBO is null");
+    raoe::check_if(!!engine_ubo, "Engine UBO is null");
+
+    camera_ubo->set_data(camera_uniform {
+        .camera_matrix = camera.get_camera_matrix(),
+        .projection_matrix = camera.get_projection_matrix(),
+        .proj_camera = camera.get_view_projection_matrix(),
+    });
+
+    raoe::render::immediate::draw_immediate_batch(*engine_ubo, *camera_ubo);
 }
 raoe::engine::render_module::render_module(const flecs::world& world)
 {
     world.component<render::render_transform>();
     world.component<render::camera>();
+    world.component<ubo>();
 
     world.system().kind(entities::startup::on_render_start).immediate().run(init_render);
     world.system<render::render_transform, const transform_3d>()
