@@ -139,19 +139,19 @@ namespace raoe::render
             vertices.push_back({});
             // TODO: With C++ reflection I can set the position field of the vertex format directly
             if constexpr(requires(TVertexFormat v) {
-                             { v.position } -> std::same_as<glm::vec3>;
+                             { v.position } -> std::convertible_to<glm::vec3>;
                          })
             {
                 vertices.back().position = position;
             }
             else if constexpr(requires(TVertexFormat v) {
-                                  { v.position } -> std::same_as<glm::vec2>;
+                                  { v.position } -> std::convertible_to<glm::vec2>;
                               })
             {
                 vertices.back().position = glm::vec2(position.x, position.y);
             }
             else if constexpr(requires(TVertexFormat v) {
-                                  { v.position } -> std::same_as<glm::vec4>;
+                                  { v.position } -> std::convertible_to<glm::vec4>;
                               })
             {
                 vertices.back().position = glm::vec4(position.x, position.y, position.z, 0);
@@ -222,7 +222,7 @@ namespace raoe::render
 
         mesh_element_builder& extend_indices(const std::span<const uint16> indices_to_add)
         {
-            const uint16 start_index = static_cast<uint16>(vertices.size());
+            const auto start_index = static_cast<uint16>(indices.size());
             // add the indices to the end of the current indices, but add start_index to each value
             for(const auto& index : indices_to_add)
             {
@@ -247,10 +247,10 @@ namespace raoe::render
             glm::vec3 u_vec = face.u * width;
             glm::vec3 v_vec = face.v * height;
 
-            const glm::vec3 minu_minv = face.sign > 0 ? pos_min + face.n : pos_min;
+            const glm::vec3 minu_minv = pos_min;
             const glm::vec3 minu_maxv = minu_minv + u_vec;
             const glm::vec3 maxu_minv = minu_minv + v_vec;
-            const glm::vec3 maxu_maxv = minu_minv + v_vec + v_vec;
+            const glm::vec3 maxu_maxv = minu_minv + u_vec + v_vec;
 
             add_vertex_position(minu_minv).with_uv(uv_min).with_color(color).with_normal(face.sign > 0 ? face.n
                                                                                                        : -face.n);
@@ -265,7 +265,7 @@ namespace raoe::render
             add_vertex_position(maxu_maxv).with_uv(uv_max).with_color(color).with_normal(face.sign > 0 ? face.n
                                                                                                        : -face.n);
 
-            if(face.sign > 0)
+            if(face.sign <= 0)
             {
                 extend_indices(std::array<uint16, 6> {0, 1, 2, 1, 3, 2}); // Clockwise order
             }

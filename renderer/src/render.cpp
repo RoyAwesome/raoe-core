@@ -27,34 +27,6 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 namespace raoe::render
 {
-    // create a cube
-    static std::array cube_points = {
-        simple_vertex {glm::vec3(0, 0, 0), glm::vec3(0, 0, -1), glm::vec2(0, 0)},
-        simple_vertex {glm::vec3(1, 0, 0), glm::vec3(0, 0, -1), glm::vec2(1, 0)},
-        simple_vertex {glm::vec3(1, 1, 0), glm::vec3(0, 0, -1), glm::vec2(1, 1)},
-        simple_vertex {glm::vec3(0, 1, 0), glm::vec3(0, 0, -1), glm::vec2(0, 1)},
-        simple_vertex {glm::vec3(0, 0, 1), glm::vec3(0, 0, 1),  glm::vec2(0, 0)},
-        simple_vertex {glm::vec3(1, 0, 1), glm::vec3(0, 0, 1),  glm::vec2(1, 0)},
-        simple_vertex {glm::vec3(1, 1, 1), glm::vec3(0, 0, 1),  glm::vec2(1, 1)},
-        simple_vertex {glm::vec3(0, 1, 1), glm::vec3(0, 0, 1),  glm::vec2(0, 1)},
-    };
-
-    static std::array<uint8, 36> cube_indices = {
-        0, 1, 2, 2, 3, 0, 1, 5, 6, 6, 2, 1, 5, 4, 7, 7, 6, 5, 4, 0, 3, 3, 7, 4, 3, 2, 6, 6, 7, 3, 4, 5, 1, 1, 0, 4,
-    };
-
-    static std::array triangle_points = {
-        simple_vertex {glm::vec3(-1, -1, 0), glm::vec3(0, 0, -1), glm::vec2(0,   0)},
-        simple_vertex {glm::vec3(1,  -1, 0), glm::vec3(0, 0, -1), glm::vec2(1,   0)},
-        simple_vertex {glm::vec3(0,  1,  0), glm::vec3(0, 0, -1), glm::vec2(0.5, 1)},
-    };
-
-    static std::array plane_points = {
-        simple_vertex {glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), glm::vec2(0, 0)},
-        simple_vertex {glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec2(1, 0)},
-        simple_vertex {glm::vec3(1, 0, 1), glm::vec3(0, 1, 0), glm::vec2(1, 1)},
-        simple_vertex {glm::vec3(0, 0, 1), glm::vec3(0, 1, 0), glm::vec2(0, 1)},
-    };
 
     static std::array<uint8, 6> plane_indices = {0, 1, 2, 2, 3, 0};
 
@@ -66,6 +38,10 @@ namespace raoe::render
         check_if(ctx.generic_2d_shader != nullptr, "Generic 2D shader is null");
         check_if(!!ctx.load_callback, "Load callback is null");
         _static_render_context = ctx;
+        if(!_static_render_context->error_texture->has_gpu_data())
+        {
+            _static_render_context->error_texture->upload_to_gpu();
+        }
     }
     render_context& get_render_context()
     {
@@ -91,8 +67,8 @@ namespace raoe::render
                                             texture_params {
                                                 .wrap_u = texture_wrap::repeat,
                                                 .wrap_v = texture_wrap::repeat,
-                                                .filter_min = texture_filter::linear,
-                                                .filter_mag = texture_filter::linear,
+                                                .filter_min = texture_filter::nearest,
+                                                .filter_mag = texture_filter::nearest,
                                             });
     }
 
@@ -115,6 +91,11 @@ namespace raoe::render
         }
     }
 
+    bool type_normalized(const renderer_type uniform_type)
+    {
+        return uniform_type == renderer_type::color;
+    }
+
     uint32 get_or_create_vao(const std::span<const type_description> elements)
     {
         static std::unordered_map<uint32, uint32> vao_map;
@@ -134,7 +115,8 @@ namespace raoe::render
             glEnableVertexArrayAttrib(vao, i);
 
             auto [size, gl_type] = get_size_and_gl_type(element.type);
-            glVertexArrayAttribFormat(vao, i, size, gl_type, GL_FALSE, element.offset);
+            glVertexArrayAttribFormat(vao, i, size, gl_type, type_normalized(element.type) ? GL_TRUE : GL_FALSE,
+                                      element.offset);
             glVertexArrayAttribBinding(vao, i, 0);
         }
 
@@ -158,8 +140,10 @@ namespace raoe::render
             render_mesh_element(*mesh_element);
         }
     }
+
     void render_mesh_element(mesh_element& mesh_element)
     {
+
         // Generate any buffers if they are not already generated
         mesh_element.generate_buffers();
 

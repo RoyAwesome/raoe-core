@@ -187,6 +187,6 @@ namespace raoe::render::colors
     inline constexpr glm::u8vec4 white_smoke = from_hex_abgr(0xfff5f5f5);
     inline constexpr glm::u8vec4 yellow = from_hex_abgr(0xff00ffff);
     inline constexpr glm::u8vec4 yellow_green = from_hex_abgr(0xff32cd9a);
-    inline constexpr glm::u8vec4 magic_pink = from_hex_rgba(0xffff00ff);
+    inline constexpr glm::u8vec4 magic_pink = from_hex_rgba(0xff00ffff);
 
 }

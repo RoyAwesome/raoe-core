@@ -85,7 +85,8 @@ namespace raoe::engine::sys
         }
 
         spdlog::log(log_level, "OpenGL [{}]: {} type={} Message:\"{}\"", severity_str, src_str, type_str, message);
-        debug::debug_break_if(type == GL_DEBUG_TYPE_ERROR);     }
+        debug::debug_break_if(type == GL_DEBUG_TYPE_ERROR);
+    }
     static void glfw_error_callback(int error_code, const char* description)
     {
         ensure(!error_code, "GLFW Error: {} {}", error_code, description);
@@ -176,7 +177,6 @@ namespace raoe::engine::sys
 
     void present_glfw_window(flecs::iter it)
     {
-
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

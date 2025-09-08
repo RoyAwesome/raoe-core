@@ -76,7 +76,7 @@ namespace raoe::engine
     flecs::world world() noexcept;
 
     // Initializes the engine's ECS world and returns a handle to it.
-    flecs::world init_engine(int argc, char* argv[], std::string app_name, std::string org_name);
+    flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name);
 
     // Shuts down the engine's ECS world and cleans up resources.
     void shutdown_engine() noexcept;
@@ -103,6 +103,7 @@ namespace raoe::engine
         {
             main_window,
             main_camera,
+            camera_2d,
             core_pack,
         };
 

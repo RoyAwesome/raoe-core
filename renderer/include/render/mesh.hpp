@@ -57,13 +57,23 @@ namespace raoe::render
             return set_data(vertex_elements_data, index_elements_data);
         }
 
+        template<std::ranges::range TVertexRange>
+            requires type_described<std::ranges::range_value_t<TVertexRange>>
+        mesh_element& set_data(TVertexRange&& vertex_elements)
+        {
+            auto vertex_elements_data =
+                std::span(std::ranges::data(vertex_elements), std::ranges::size(vertex_elements));
+            return set_data(vertex_elements_data);
+        }
+
         // Typed set_data without an index.  Takes a span of vertex data and uses that as a mesh
         // element.
         template<type_described TVertexData>
         mesh_element& set_data(const std::span<TVertexData> vertex_elements)
         {
-            return set_data(std::as_bytes(vertex_elements), renderer_type_of<TVertexData>::elements(),
-                            vertex_elements.size(), sizeof(TVertexData), {}, {}, 0, 0);
+            return set_data(std::as_bytes(vertex_elements),
+                            renderer_type_of<std::remove_cvref_t<TVertexData>>::elements(), vertex_elements.size(),
+                            sizeof(TVertexData), {}, {}, 0, 0);
         }
 
         // Type Erased set_data.

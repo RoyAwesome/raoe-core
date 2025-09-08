@@ -18,8 +18,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "core/shaders/common.glsl"
 
 layout(location=1, binding=0) uniform sampler2D tex;
-out vec4 fragColor;
+layout(location=0) out vec4 fragColor;
 
 void main() {
-    fragColor = texture(tex, attributes.aUV0);
+    fragColor = texture(tex, attributes.aUV0) * attributes.aColor0;
 }

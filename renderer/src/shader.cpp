@@ -403,7 +403,7 @@ namespace raoe::render::shader
 
     void uniform::set_uniform(const std::span<const std::byte> data, const int32 element_count) const
     {
-        check_if(element_count < 0, "Uniform count ({}) must be greater than 0", element_count);
+        check_if(element_count > 0, "Uniform count ({}) must be greater than 0", element_count);
 
         switch(m_type)
         {
@@ -453,6 +453,7 @@ namespace raoe::render::shader
     {
         glBindTextureUnit(m_texture_unit, texture.native_id());
     }
+
     uniform_block& uniform_block::operator=(const uniform_buffer& buffer)
     {
         // check that the buffer type matches the block type

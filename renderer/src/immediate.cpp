@@ -136,6 +136,7 @@ void raoe::render::immediate::begin_immediate_batch()
     // Reset the immediate data for a new batch
     immediate_data = {};
 }
+
 void raoe::render::immediate::draw_immediate_batch(const uniform_buffer& engine_ubo, const uniform_buffer& camera_ubo)
 {
     get_render_context().generic_2d_shader->use();
@@ -147,6 +148,7 @@ void raoe::render::immediate::draw_immediate_batch(const uniform_buffer& engine_
         {
             texture->upload_to_gpu();
         }
+        get_render_context().generic_2d_shader->uniforms()["tex"] = *texture;
 
         auto mesh = mesh_builder.build();
 

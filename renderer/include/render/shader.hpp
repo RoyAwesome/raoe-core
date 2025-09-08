@@ -151,8 +151,8 @@ namespace raoe::render::shader
             requires(is_valid_renderer_type(shader_uniform_type_v<T>) && !is_texture_type(shader_uniform_type_v<T>))
         uniform& operator=(const T& value)
         {
-            check_if(m_type == renderer_type::none, "Uniform is not initialized.  Cannot assign value to it");
-            check_if(m_type != shader_uniform_type_v<T>, "Uniform type mismatch.  Expecting {}, got {}", m_type,
+            check_if(m_type != renderer_type::none, "Uniform is not initialized.  Cannot assign value to it");
+            check_if(m_type == shader_uniform_type_v<T>, "Uniform type mismatch.  Expecting {}, got {}", m_type,
                      shader_uniform_type_v<T>);
 
             set_uniform(raoe::as_bytes(value));
@@ -162,7 +162,7 @@ namespace raoe::render::shader
 
         uniform& operator=(const texture& value)
         {
-            check_if(m_type == renderer_type::none, "Uniform is not initialized.  Cannot assign value to it");
+            check_if(m_type != renderer_type::none, "Uniform is not initialized.  Cannot assign value to it");
             set_uniform(value);
 
             return *this;

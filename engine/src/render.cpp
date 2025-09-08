@@ -15,9 +15,11 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
  */
 
 #include "engine/render.hpp"
+
 #include "render/render.hpp"
 
 #include "engine/sys/pack.hpp"
+#include "engine/sys/window.hpp"
 #include "render/immediate.hpp"
 
 struct scoped_world_defer_suspend
@@ -103,6 +105,7 @@ void init_render(const flecs::iter it)
     using namespace raoe::render::shader;
 
     spdlog::info("Initializing renderer");
+
     auto _ = scoped_world_defer_suspend(it.world());
     const auto error_texture = raoe::render::generate_checkerboard_texture({64, 64}, raoe::render::colors::black,
                                                                            raoe::render::colors::magic_pink, 8);
@@ -114,8 +117,6 @@ void init_render(const flecs::iter it)
                                   .load_module<shader_type::fragment>("core/shaders/error.frag.glsl")
                                   .build_sync();
 
-    spdlog::info(error_shader->debug_string());
-
     spdlog::info("Building Generic 2D Shader");
     const auto generic_2d_shader = glsl_builder("Generic 2D Shader")
                                        .with_file_loader(raoe::engine::sys::load_string_from_pack)
@@ -123,9 +124,13 @@ void init_render(const flecs::iter it)
                                        .load_module<shader_type::fragment>("core/shaders/generic_2d.frag.glsl")
                                        .build_sync();
 
+    const glm::vec2 window_size =
+        it.world().entity(raoe::engine::entities::engine::main_window).get<raoe::engine::sys::window>().size();
+
     const raoe::render::render_context ctx {.error_shader = error_shader,
                                             .generic_2d_shader = generic_2d_shader,
                                             .error_texture = error_texture,
+                                            .surface_size = window_size,
                                             .load_callback =
                                                 glsl::file_load_callback_t(raoe::engine::sys::load_string_from_pack)};
 
@@ -141,6 +146,13 @@ void init_render(const flecs::iter it)
         .set<ubo>({std::make_shared<raoe::render::uniform_buffer>(camera_uniform {})});
 
     it.world().entity(raoe::engine::entities::engine::main_camera).add<raoe::render::camera>();
+
+    raoe::render::camera screen_space_orthographic_camera =
+        raoe::render::camera().with_orthographic(0.0f, window_size.x, window_size.y, 0.0f, 0.0f, 100.0f);
+    it.world()
+        .entity(raoe::engine::entities::engine::camera_2d)
+        .add<raoe::render::camera>()
+        .set(screen_space_orthographic_camera);
 
     it.world()
         .entity(raoe::engine::entities::engine_assets::error_texture)
@@ -231,7 +243,7 @@ void tick_start(flecs::iter itr)
 
 void post_draw(const flecs::iter itr)
 {
-    const auto& camera = itr.world().entity(raoe::engine::entities::engine::main_camera).get<raoe::render::camera>();
+    const auto& camera = itr.world().entity(raoe::engine::entities::engine::camera_2d).get<raoe::render::camera>();
     const auto& [camera_ubo] = itr.world().entity(raoe::engine::entities::engine_assets::camera_ubo).get<ubo>();
     const auto& [engine_ubo] = itr.world().entity(raoe::engine::entities::engine_assets::engine_ubo).get<ubo>();
 

@@ -95,7 +95,7 @@ namespace raoe::engine
         return flecs::world(_world->world_);
     }
 
-    flecs::world init_engine(int argc, char* argv[], std::string app_name, std::string org_name)
+    flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name)
     {
         _command_line_args = std::vector<std::string_view>(argv, argv + argc);
 

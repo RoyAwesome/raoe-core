@@ -16,14 +16,15 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 */
 #include "core/shaders/common.glsl"
 
-
 layout(location=0) in vec3 inPosition;
-layout(location=1) in vec3 inNormal;
-layout(location=2) in vec2 inUV;
+layout(location=1) in vec2 inUV0;
+layout(location=2) in vec4 inColor0;
+layout(location=3) in vec3 inNormal;
 
 
 void main() {
-    gl_Position = vec4(inPosition, 1) * camera.proj_cam;
+    gl_Position = camera.proj_cam * vec4(inPosition, 1);
     attributes.aNorm0 = inNormal;
-    attributes.aUV0 = inUV;
+    attributes.aUV0 = inUV0;
+    attributes.aColor0 = inColor0;
 }

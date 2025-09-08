@@ -40,5 +40,6 @@ layout(std140, binding = 1) uniform Camera {
 RASTERIZER_QUALIFER _RASTERIZER_BLOCK {
     vec2 aUV0;
     vec3 aNorm0;
+    vec4 aColor0;
 } attributes;
 #endif
