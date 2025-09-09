@@ -31,6 +31,7 @@ namespace raoe::render
     static std::array<uint8, 6> plane_indices = {0, 1, 2, 2, 3, 0};
 
     static std::optional<render_context> _static_render_context;
+    static std::optional<internal_render_assets> _static_internal_render_assets;
     void set_render_context(const render_context& ctx)
     {
         check_if(ctx.error_shader != nullptr, "Error shader is null");
@@ -42,12 +43,36 @@ namespace raoe::render
         {
             _static_render_context->error_texture->upload_to_gpu();
         }
+        get_internal_render_assets(); // Ensure internal assets are created
+    }
+    void shutdown_renderer()
+    {
+        _static_render_context.reset();
+        _static_internal_render_assets.reset();
     }
     render_context& get_render_context()
     {
         check_if(!!_static_render_context, "Render context is not initialized");
         return *_static_render_context;
     }
+
+    internal_render_assets& get_internal_render_assets()
+    {
+        if(!_static_internal_render_assets)
+        {
+            _static_internal_render_assets.emplace();
+            _static_internal_render_assets->white_texture =
+                std::make_shared<texture_2d>(std::array {colors::white}, glm::ivec2 {1, 1},
+                                             texture_params {
+                                                 .filter_min = texture_filter::nearest,
+                                                 .filter_mag = texture_filter::nearest,
+                                             });
+            _static_internal_render_assets->white_texture->upload_to_gpu();
+        }
+
+        return *_static_internal_render_assets;
+    }
+
     std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,
                                                               const glm::u8vec4& color2, const int square_size)
     {

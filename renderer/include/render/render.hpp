@@ -104,6 +104,7 @@ namespace raoe::render
     };
 
     void set_render_context(const render_context& ctx);
+    void shutdown_renderer();
     render_context& get_render_context();
 
     std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,

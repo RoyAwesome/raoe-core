@@ -96,17 +96,6 @@ struct immediate_render_data
 };
 static immediate_render_data immediate_data;
 
-struct immediate_render_assets
-{
-    raoe::render::texture_2d white_texture =
-        raoe::render::texture_2d(std::array {raoe::render::colors::white}, {1, 1}, {});
-
-    raoe::render::camera immediate_2d_camera = raoe::render::camera(
-        glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f)); // Default orthographic camera for 2D rendering
-};
-
-static immediate_render_assets immediate_render_assets;
-
 void raoe::render::draw_2d_texture_rect(const glm::vec2 rect_min, const glm::vec2 rect_max, const texture_2d& texture,
                                         const glm::vec2 uv_min, const glm::vec2 uv_max, const glm::u8vec4& color,
                                         const float rotation, const glm::vec2& origin)
@@ -118,7 +107,7 @@ void raoe::render::draw_2d_texture_rect(const glm::vec2 rect_min, const glm::vec
 void raoe::render::draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect_max, const glm::u8vec4& color,
                                 const float rotation, const glm::vec2& origin)
 {
-    immediate_data.begin_batch(immediate_render_assets.white_texture, [&](render_batch& batch) {
+    immediate_data.begin_batch(*get_internal_render_assets().white_texture, [&](render_batch& batch) {
         batch.push_rotation_rad(rotation, origin)
             .add_quad(rect_min, rect_max, glm::vec2(0.0f, 0.0f), glm::vec2(1.0f, 1.0f), color)
             .pop_transform();
@@ -127,12 +116,6 @@ void raoe::render::draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect
 
 void raoe::render::immediate::begin_immediate_batch()
 {
-    if(!immediate_render_assets.white_texture.has_gpu_data())
-    {
-        immediate_render_assets.white_texture.upload_to_gpu();
-        immediate_render_assets.white_texture.free_cpu_data();
-    }
-
     // Reset the immediate data for a new batch
     immediate_data = {};
 }

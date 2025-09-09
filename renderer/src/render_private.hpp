@@ -18,14 +18,21 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "core/core.hpp"
 
-#include <cstddef>
-
-#include <concepts>
-#include <type_traits>
-
 #include "glm/ext.hpp"
 #include "spdlog/spdlog.h"
 #include <format>
+
+#include "render/texture.hpp"
+
+namespace raoe::render
+{
+    struct internal_render_assets
+    {
+        std::shared_ptr<texture_2d> white_texture;
+    };
+
+    internal_render_assets& get_internal_render_assets();
+}
 
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec2, return format_to(ctx.out(), "({}, {})", value.x, value.y);)
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec3, return format_to(ctx.out(), "({}, {}, {})", value.x, value.y, value.z);)
