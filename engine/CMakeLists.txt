@@ -12,6 +12,7 @@ raoe_add_module(
         CPP_SOURCE_FILES
         "src/engine.cpp"
         "src/render.cpp"
+        "src/asset.cpp"
         "src/sys/window.cpp"
         "src/sys/pack.cpp"
         COMPILE_DEFINITIONS
