@@ -20,6 +20,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include <catch2/catch_test_macros.hpp>
 
 #include "engine/asset.hpp"
+#include "engine/sys/pack.hpp"
 
 TEST_CASE("Strong Asset Handle Test", "[ENGINE][ASSET]")
 {
@@ -27,9 +28,8 @@ TEST_CASE("Strong Asset Handle Test", "[ENGINE][ASSET]")
 
     flecs::entity e = world.entity().set<int>(42);
 
-    flecs::ref<int> r = {e};
-
     {
+        flecs::ref<int> r = {e};
         raoe::engine::asset_handle handle1(r);
         {
             auto handle2 = handle1;
@@ -41,4 +41,48 @@ TEST_CASE("Strong Asset Handle Test", "[ENGINE][ASSET]")
     }
 
     REQUIRE(!e.is_alive());
+}
+
+TEST_CASE("Test Weak Asset Handles", "[ENGINE][ASSET]")
+{
+    flecs::world world;
+
+    flecs::entity e = world.entity().set<int>(42);
+
+    raoe::engine::asset_handle<int, raoe::engine::asset_handle_type::weak> weak_handle;
+    {
+        flecs::ref<int> r = {e};
+        raoe::engine::asset_handle<int, raoe::engine::asset_handle_type::strong> strong_handle(r);
+        weak_handle = strong_handle;
+
+        {
+            auto weak_handle2 = weak_handle;
+            REQUIRE(!!weak_handle2);
+            REQUIRE(*weak_handle2 == 42);
+        }
+        REQUIRE(!!weak_handle);
+        REQUIRE(*weak_handle == 42);
+    }
+
+    REQUIRE(!e.is_alive());
+    REQUIRE(!weak_handle);
+}
+
+TEST_CASE("Test loading strings", "[ENGINE][ASSET] ")
+{
+    using namespace raoe::engine;
+    raoe::fs::permit_symlinks(true);
+    raoe::fs::init_fs("asdf", "", "app_name", "org_name");
+    flecs::world world;
+    world.import <sys::pack_module>();
+    sys::load_pack(world.entity(entities::engine::core_pack), "packs/core",
+                   sys::pack_flags::system | sys::pack_flags::game);
+    world.progress(); // Make sure the engine systems are initialized
+
+    auto handle = raoe::engine::load_asset<std::string>(world, raoe::fs::path("core.toml"));
+
+    spdlog::info("Loaded asset {}", *handle);
+    REQUIRE(!!handle);
+
+    REQUIRE(handle->size() > 0);
 }

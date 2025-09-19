@@ -273,10 +273,9 @@ raoe::engine::render_module::render_module(const flecs::world& world)
         .kind(entities::render_tick::render_begin)
         .each(compute_render_transform_2d);
 
-    world.system().kind(entities::render_tick::render_begin).run(prepare_frame);
-
-    world.system<const render_info, const render::render_transform>().kind(entities::render_tick::draw).run(draw_frame);
-
     world.system().kind(flecs::PreFrame).run(tick_start);
     world.system().kind(entities::render_tick::post_draw).run(post_draw);
+
+    world.system().kind(entities::render_tick::render_begin).run(prepare_frame);
+    world.system<const render_info, const render::render_transform>().kind(entities::render_tick::draw).run(draw_frame);
 }

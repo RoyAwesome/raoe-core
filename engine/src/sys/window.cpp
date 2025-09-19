@@ -140,6 +140,11 @@ namespace raoe::engine::sys
 
     void shutdown_glfw(flecs::iter it)
     {
+        // If we have any windows, destroy them
+        it.world().each<sys::window>([](flecs::entity e, sys::window& w) {
+            glfwDestroyWindow(w.native_handle());
+            e.destruct();
+        });
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();

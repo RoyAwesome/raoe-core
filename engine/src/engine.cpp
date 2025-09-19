@@ -51,8 +51,16 @@ namespace raoe::engine
             world.component<transform_2d>();
             world.component<transform_3d>();
 
-            world.import <sys::window_module>();
-            world.import <render_module>();
+            if(!has_any_flags(world.get<engine_info_t>().flags, engine_flags::headless))
+            {
+                world.import <sys::window_module>();
+                world.import <render_module>();
+            }
+            else
+            {
+                spdlog::info("Running in headless mode, window and rendering systems will not be initialized.");
+            }
+
             world.import <sys::pack_module>();
             world.system("Load Important Assets")
                 .kind(entities::startup::on_pre_init)
@@ -95,8 +103,10 @@ namespace raoe::engine
         return flecs::world(_world->world_);
     }
 
-    flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name)
+    flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name,
+                             engine_flags flags)
     {
+        check_if(argv != nullptr, "argv must be your program's argv");
         _command_line_args = std::vector<std::string_view>(argv, argv + argc);
 
         spdlog::info("Starting RAOE with game {}", app_name);
@@ -121,13 +131,12 @@ namespace raoe::engine
 
         _world.emplace(argc, argv);
         _world->component<engine_info_t>().add(flecs::Singleton);
-        _world->set(engine_info_t {
-            .command_line_args = std::span(_command_line_args),
-            .app_name = app_name,
-            .app_version = "0.1.0",
-            .org_name = org_name,
-            .org_version = "0.1.0",
-        });
+        _world->set<engine_info_t>(engine_info_t {.command_line_args = std::span(_command_line_args),
+                                                  .app_name = app_name,
+                                                  .app_version = "0.1.0",
+                                                  .org_name = org_name,
+                                                  .org_version = "0.1.0",
+                                                  .flags = flags});
         _world->import <engine_module>();
 
         return flecs::world(_world->world_);

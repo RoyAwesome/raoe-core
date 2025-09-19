@@ -27,6 +27,12 @@
 
 namespace raoe::engine
 {
+    enum class engine_flags : uint32
+    {
+        none = 0,
+        headless = 1 << 0,  // Run without a window (no rendering)
+        test_mode = 1 << 1, // Run in test mode (for unit tests, causing offline rendering)
+    };
     struct engine_info_t
     {
         std::span<std::string_view> command_line_args;
@@ -36,6 +42,8 @@ namespace raoe::engine
         std::string org_version;
 
         std::string engine_version = "0.1.0";
+
+        engine_flags flags = engine_flags::none;
     };
 
     struct transform_3d
@@ -76,7 +84,8 @@ namespace raoe::engine
     flecs::world world() noexcept;
 
     // Initializes the engine's ECS world and returns a handle to it.
-    flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name);
+    [[nodiscard]] flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name,
+                                           engine_flags flags = engine_flags::none);
 
     // Shuts down the engine's ECS world and cleans up resources.
     void shutdown_engine() noexcept;
@@ -145,6 +154,8 @@ namespace raoe::engine
     }
 
 }
+
+RAOE_CORE_FLAGS_ENUM(raoe::engine::engine_flags)
 
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec2, return format_to(ctx.out(), "({}, {})", value.x, value.y);)
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec3, return format_to(ctx.out(), "({}, {}, {})", value.x, value.y, value.z);)

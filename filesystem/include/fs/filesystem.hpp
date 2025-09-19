@@ -49,6 +49,7 @@ namespace raoe::fs
         explicit operator std::u8string_view() const { return std::u8string_view(m_underlying); }
 
         [[nodiscard]] std::u8string u8string() const { return m_underlying; }
+        [[nodiscard]] std::string string() const { return std::string(string_view()); }
         [[nodiscard]] std::filesystem::path filesystem_path() const { return m_underlying; }
 
         bool operator==(const path& other) const { return m_underlying == other.m_underlying; }
@@ -101,6 +102,7 @@ namespace raoe::fs
         std::u8string::value_type& operator[](std::size_t pos) { return m_underlying[pos]; }
 
         [[nodiscard]] const char8_t* c_str() const { return m_underlying.c_str(); }
+        [[nodiscard]] const char* data() const { return reinterpret_cast<const char*>(m_underlying.data()); }
         [[nodiscard]] std::string_view string_view() const
         {
             return {reinterpret_cast<const char*>(m_underlying.data()), m_underlying.size()};
@@ -177,7 +179,16 @@ namespace raoe::fs
         }
         [[nodiscard]] path filename() const
         {
-            return path(m_underlying.substr(m_underlying.rfind(u8'/'), m_underlying.size()));
+            if(m_underlying.empty())
+            {
+                return {};
+            }
+            auto last = m_underlying.rfind(u8'/');
+            if(last == std::u8string::npos)
+            {
+                return *this;
+            }
+            return path(m_underlying.substr(last, m_underlying.size()));
         }
         [[nodiscard]] path parent_path() const
         {

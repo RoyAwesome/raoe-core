@@ -24,7 +24,7 @@ function(raoe_recursively_get_dependencies targets out_var)
 endfunction()
 
 macro(raoe_add_module)
-    set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE)
+    set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE SKIP_TESTS)
     set(oneValueArgs NAME NAMESPACE CXX_STANDARD TARGET_VARIABLE PACK_DIRECTORY)
     set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES SYMLINK_IN_DEV)
 
@@ -84,6 +84,14 @@ macro(raoe_add_module)
                                        # "RAOE_MODULE_NAME=${raoe_add_module_NAME}"
                                        ${raoe_add_module_COMPILE_DEFINITIONS}
             )
+
+            if (DEFINED raoe_add_module_PACK_DIRECTORY)
+                string(STRIP "${raoe_add_module_PACK_DIRECTORY}" raoe_add_module_PACK_DIRECTORY)
+                string(REPLACE "\\" "/" raoe_add_module_PACK_DIRECTORY "${raoe_add_module_PACK_DIRECTORY}")
+                target_compile_definitions(${PROJECT_NAME}
+                                           PUBLIC
+                                           "RAOE_ASSET_PACK_DIR=\"${raoe_add_module_PACK_DIRECTORY}\"")
+            endif ()
         endif ()
 
         if (NOT raoe_add_module_EXECUTABLE)
@@ -249,7 +257,7 @@ macro(raoe_add_module)
         add_subdirectory("third_party")
     endif ()
 
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt" AND NOT INCLUDED_TEST_IN_THIS_FILE)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt" AND NOT INCLUDED_TEST_IN_THIS_FILE AND NOT raoe_add_module_SKIP_TESTS)
         set(INCLUDED_TEST_IN_THIS_FILE TRUE)
         add_subdirectory("test")
     endif ()

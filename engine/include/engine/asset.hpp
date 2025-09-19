@@ -17,9 +17,19 @@
 #pragma once
 
 #include "engine/engine.hpp"
+#include "fs/filesystem.hpp"
 
 namespace raoe::engine
 {
+    namespace _internal
+    {
+        struct asset_handle_ref
+        {
+            int hard_ref_count = 0;
+            int weak_ref_count = 0;
+        };
+    } // namespace _internal
+
     enum class asset_handle_type
     {
         strong,
@@ -28,7 +38,12 @@ namespace raoe::engine
     template<typename T, asset_handle_type THandleType = asset_handle_type::strong>
     class asset_handle
     {
+        using asset_handle_ref = _internal::asset_handle_ref;
+
       public:
+        template<typename U, asset_handle_type TOtherHandle>
+        friend class asset_handle;
+
         asset_handle() = default;
         explicit asset_handle(flecs::ref<T> asset)
             requires(THandleType == asset_handle_type::strong)
@@ -80,7 +95,7 @@ namespace raoe::engine
                 asset = other.asset;
                 if(ref)
                 {
-                    ++ref->ref_count;
+                    ++ref->hard_ref_count;
                 }
             }
             return *this;
@@ -103,7 +118,7 @@ namespace raoe::engine
             requires(THandleType == asset_handle_type::weak)
 
         {
-            ref = other.ref;
+            ref = const_cast<asset_handle<T, TOtherHandleType>&>(other).ref;
             asset = other.asset;
             if(ref)
             {
@@ -176,15 +191,72 @@ namespace raoe::engine
             }
         }
 
-        struct asset_handle_ref
-        {
-            int32 hard_ref_count = 0;
-            int32 weak_ref_count = 0;
-        };
         asset_handle_ref* ref = nullptr;
         flecs::ref<T>* asset = nullptr;
     };
 
     template<typename T>
     using weak_asset_handle = asset_handle<T, asset_handle_type::weak>;
+
+    template<typename T>
+    struct asset_loader
+    {
+        static_assert(false, "You must specialize asset_loader for your asset type");
+    };
+
+    template<>
+    struct asset_loader<std::string>
+    {
+        static std::string load_asset(std::istream& in_stream)
+        {
+            std::string content((std::istreambuf_iterator<char>(in_stream)), std::istreambuf_iterator<char>());
+            return content;
+        }
+    };
+
+    template<typename T>
+    concept is_asset_type = requires {
+        { asset_loader<T>::load_asset(std::declval<std::istream&>()) } -> std::convertible_to<T>;
+    };
+
+    struct asset_meta
+    {
+        std::string m_name;
+        std::string m_path;
+
+        enum class load_state
+        {
+            not_loaded,
+            loading,
+            loaded,
+            failed,
+        } m_load_state = load_state::not_loaded;
+    };
+
+    template<is_asset_type T>
+    asset_handle<T> load_asset(flecs::world& world, fs::path path)
+    {
+        check_if(fs::exists(path), "Asset path does not exist: {}", path);
+        check_if(fs::is_regular_file(path), "Asset path is not a file: {}", path);
+        fs::ifstream file(path);
+
+        world.component<T>();
+
+        flecs::entity into_entity =
+            world.entity(path.data())
+                .set<T>(asset_loader<T>::load_asset(file))
+                .template set<asset_meta>(asset_meta {.m_name = std::string(path.stem().string_view()),
+                                                      .m_path = std::string(path.string()),
+                                                      .m_load_state = asset_meta::load_state::loaded});
+        return asset_handle<T>({into_entity});
+    }
+
+    template<is_asset_type T>
+    asset_handle<T> emplace_asset(flecs::world& world, T&& asset, asset_meta meta = {})
+    {
+        meta.m_load_state = asset_meta::load_state::loaded;
+        flecs::entity into_entity =
+            world.entity().template set<T>(std::forward<T>(asset)).template set<asset_meta>(meta);
+        return asset_handle<T>({into_entity});
+    }
 }

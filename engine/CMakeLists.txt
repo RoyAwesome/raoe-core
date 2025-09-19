@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.26)
 
+
 raoe_add_module(
         STATIC
         NAME "engine"
@@ -33,9 +34,12 @@ raoe_add_module(
         imgui-backend
         lua
         tomlplusplus::tomlplusplus
+        SKIP_TESTS
 )
 
 raoe_add_asset_pack(
         NAME "core"
         DIRECTORY "assets"
 )
+
+add_subdirectory("test")
