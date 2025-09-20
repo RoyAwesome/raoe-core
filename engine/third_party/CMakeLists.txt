@@ -91,3 +91,6 @@ if (lua_ADDED)
         )
     endif ()
 endif ()
+
+add_library(stb_image INTERFACE)
+target_include_directories(stb_image INTERFACE "${CMAKE_CURRENT_LIST_DIR}/stb_image")

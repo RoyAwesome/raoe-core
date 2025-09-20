@@ -124,6 +124,7 @@ namespace raoe::render
 
         texture(texture&& other) noexcept
             : m_native_id(std::exchange(other.m_native_id, {}))
+            , m_data(std::move(std::exchange(other.m_data, {})))
             , m_format(std::exchange(other.m_format, texture_format::unknown))
             , m_array_size(std::exchange(other.m_array_size, 1))
             , m_mipmaps(std::exchange(other.m_mipmaps, false))
@@ -136,6 +137,7 @@ namespace raoe::render
         texture& operator=(texture&& other) noexcept
         {
             m_native_id = std::exchange(other.m_native_id, {});
+            m_data = std::move(std::exchange(other.m_data, {}));
             m_format = std::exchange(other.m_format, texture_format::unknown);
             m_array_size = std::exchange(other.m_array_size, 1);
             m_mipmaps = std::exchange(other.m_mipmaps, false);

@@ -22,17 +22,6 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/sys/window.hpp"
 #include "render/immediate.hpp"
 
-struct scoped_world_defer_suspend
-{
-    explicit scoped_world_defer_suspend(flecs::world_t* world)
-        : world(world)
-    {
-        ecs_defer_suspend(world);
-    }
-    ~scoped_world_defer_suspend() { ecs_defer_resume(world); }
-    flecs::world_t* world;
-};
-
 template<typename T>
 void fill_injections_for_vertex_type(std::unordered_map<std::string, std::string>& injections)
 {
@@ -106,7 +95,7 @@ void init_render(const flecs::iter it)
 
     spdlog::info("Initializing renderer");
 
-    auto _ = scoped_world_defer_suspend(it.world());
+    auto _ = raoe::engine::scoped_world_defer_suspend(it.world());
     const auto error_texture = raoe::render::generate_checkerboard_texture({64, 64}, raoe::render::colors::black,
                                                                            raoe::render::colors::magic_pink, 8);
 
@@ -148,7 +137,7 @@ void init_render(const flecs::iter it)
     it.world().entity(raoe::engine::entities::engine::main_camera).add<raoe::render::camera>();
 
     raoe::render::camera screen_space_orthographic_camera =
-        raoe::render::camera().with_orthographic(0.0f, window_size.x, window_size.y, 0.0f, 0.0f, 100.0f);
+        raoe::render::camera().with_orthographic(0.0f, window_size.x, window_size.y, 0.0f, -1, 100.0f);
     it.world()
         .entity(raoe::engine::entities::engine::camera_2d)
         .add<raoe::render::camera>()

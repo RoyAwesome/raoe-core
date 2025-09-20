@@ -153,6 +153,17 @@ namespace raoe::engine
         };
     }
 
+    struct scoped_world_defer_suspend
+    {
+        explicit scoped_world_defer_suspend(flecs::world_t* world)
+            : world(world)
+        {
+            ecs_defer_suspend(world);
+        }
+        ~scoped_world_defer_suspend() { ecs_defer_resume(world); }
+        flecs::world_t* world;
+    };
+
 }
 
 RAOE_CORE_FLAGS_ENUM(raoe::engine::engine_flags)

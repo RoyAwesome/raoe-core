@@ -16,8 +16,9 @@ raoe_add_module(
         "src/asset.cpp"
         "src/sys/window.cpp"
         "src/sys/pack.cpp"
+        "src/assets/asset_loader_texture.cpp"
         COMPILE_DEFINITIONS
-        PRIVATE
+        PUBLIC
         "TOML_EXCEPTIONS=0" # disable exceptions in toml
         DEPENDENCIES
         PUBLIC
@@ -34,6 +35,7 @@ raoe_add_module(
         imgui-backend
         lua
         tomlplusplus::tomlplusplus
+        stb_image
         SKIP_TESTS
 )
 

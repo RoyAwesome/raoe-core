@@ -22,6 +22,12 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/asset.hpp"
 #include "engine/sys/pack.hpp"
 
+template<>
+struct raoe::engine::asset_loader<int>
+{
+    static int load_asset(const asset_load_params&) { return 42; }
+};
+
 TEST_CASE("Strong Asset Handle Test", "[ENGINE][ASSET]")
 {
     flecs::world world;

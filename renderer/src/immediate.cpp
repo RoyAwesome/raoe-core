@@ -29,8 +29,8 @@ struct render_batch
     {
         // Push back 6 verts, 2 triangles, with the positions transformed by the next transform and the z coord the next
         // depth
-        const glm::vec3 pos_min(min, static_cast<float>(next_depth));
-        const glm::vec3 pos_max(max, static_cast<float>(next_depth));
+        const glm::vec3 pos_min(min, static_cast<float>(next_depth) / 20000.0f);
+        const glm::vec3 pos_max(max, static_cast<float>(next_depth) / 20000.0f);
 
         mesh_builder.add_quad(next_transform * glm::vec4(pos_min, 1.0f), next_transform * glm::vec4(pos_max, 1.0f),
                               raoe::render::quad_builder::face_direction::z_plus, uv_min, uv_max, color);

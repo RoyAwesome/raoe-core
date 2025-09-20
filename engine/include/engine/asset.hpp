@@ -19,8 +19,28 @@
 #include "engine/engine.hpp"
 #include "fs/filesystem.hpp"
 
+#include <toml++/toml.hpp>
+
 namespace raoe::engine
 {
+    template<typename T>
+    struct asset_loader
+    {
+        static_assert(false, "You must specialize asset_loader for your asset type");
+    };
+
+    struct asset_load_params
+    {
+        std::istream& file_stream;
+        const raoe::fs::path& file_path;
+        const toml::table* metadata = nullptr;
+    };
+
+    template<typename T>
+    concept is_asset_type = requires {
+        { asset_loader<T>::load_asset(std::declval<const asset_load_params&>()) } -> std::convertible_to<T>;
+    };
+
     namespace _internal
     {
         struct asset_handle_ref
@@ -35,13 +55,13 @@ namespace raoe::engine
         strong,
         weak,
     };
-    template<typename T, asset_handle_type THandleType = asset_handle_type::strong>
+    template<is_asset_type T, asset_handle_type THandleType = asset_handle_type::strong>
     class asset_handle
     {
         using asset_handle_ref = _internal::asset_handle_ref;
 
       public:
-        template<typename U, asset_handle_type TOtherHandle>
+        template<is_asset_type U, asset_handle_type TOtherHandle>
         friend class asset_handle;
 
         asset_handle() = default;
@@ -198,25 +218,14 @@ namespace raoe::engine
     template<typename T>
     using weak_asset_handle = asset_handle<T, asset_handle_type::weak>;
 
-    template<typename T>
-    struct asset_loader
-    {
-        static_assert(false, "You must specialize asset_loader for your asset type");
-    };
-
     template<>
     struct asset_loader<std::string>
     {
-        static std::string load_asset(std::istream& in_stream)
+        static std::string load_asset(const asset_load_params& params)
         {
-            std::string content((std::istreambuf_iterator<char>(in_stream)), std::istreambuf_iterator<char>());
+            std::string content((std::istreambuf_iterator(params.file_stream)), std::istreambuf_iterator<char>());
             return content;
         }
-    };
-
-    template<typename T>
-    concept is_asset_type = requires {
-        { asset_loader<T>::load_asset(std::declval<std::istream&>()) } -> std::convertible_to<T>;
     };
 
     struct asset_meta
@@ -231,6 +240,7 @@ namespace raoe::engine
             loaded,
             failed,
         } m_load_state = load_state::not_loaded;
+        toml::table m_meta_table;
     };
 
     template<is_asset_type T>
@@ -242,12 +252,24 @@ namespace raoe::engine
 
         world.component<T>();
 
-        flecs::entity into_entity =
-            world.entity(path.data())
-                .set<T>(asset_loader<T>::load_asset(file))
-                .template set<asset_meta>(asset_meta {.m_name = std::string(path.stem().string_view()),
-                                                      .m_path = std::string(path.string()),
-                                                      .m_load_state = asset_meta::load_state::loaded});
+        asset_meta meta = {.m_name = std::string(path.stem().string_view()),
+                           .m_path = std::string(path.string()),
+                           .m_load_state = asset_meta::load_state::loaded};
+        if(const fs::path meta_path = path + ".meta"; fs::exists(meta_path) && fs::is_regular_file(meta_path))
+        {
+            fs::ifstream meta_file(meta_path);
+            std::string meta_content =
+                asset_loader<std::string>::load_asset({.file_stream = meta_file, .file_path = meta_path});
+            if(const auto result = toml::parse(meta_content, meta_path.string_view()); result.succeeded())
+            {
+                meta.m_meta_table = std::move(result.table());
+            }
+        }
+
+        flecs::entity into_entity = world.entity(path.data())
+                                        .set<T>(asset_loader<T>::load_asset(
+                                            {.file_stream = file, .file_path = path, .metadata = &meta.m_meta_table}))
+                                        .template set<asset_meta>(std::move(meta));
         return asset_handle<T>({into_entity});
     }
 
@@ -255,8 +277,13 @@ namespace raoe::engine
     asset_handle<T> emplace_asset(flecs::world& world, T&& asset, asset_meta meta = {})
     {
         meta.m_load_state = asset_meta::load_state::loaded;
-        flecs::entity into_entity =
-            world.entity().template set<T>(std::forward<T>(asset)).template set<asset_meta>(meta);
+        flecs::entity into_entity = world.entity().set<T>(std::forward<T>(asset)).template set<asset_meta>(meta);
         return asset_handle<T>({into_entity});
     }
 }
+
+template<>
+struct raoe::engine::asset_loader<raoe::render::texture_2d>
+{
+    static render::texture_2d load_asset(const asset_load_params&);
+};
