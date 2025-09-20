@@ -63,5 +63,7 @@ raoe::render::texture_2d raoe::engine::asset_loader<raoe::render::typed_texture<
         default: break;
     }
 
-    return render::texture_2d(texture_data, fmt, glm::ivec2(width, height), render::texture_params {}, true);
+    auto texture = render::texture_2d(texture_data, fmt, glm::ivec2(width, height), render::texture_params {}, true);
+    stbi_image_free(data);
+    return texture;
 }
