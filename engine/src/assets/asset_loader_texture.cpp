@@ -38,6 +38,44 @@ int eof(void* stream)
     return file->eof() ? 1 : 0;
 }
 
+raoe::render::texture_wrap string_to_texture_wrap(std::string_view str)
+{
+    if(str == "clamp_to_edge")
+    {
+        return raoe::render::texture_wrap::clamp_to_edge;
+    }
+    if(str == "clamp_to_border")
+    {
+        return raoe::render::texture_wrap::clamp_to_border;
+    }
+    if(str == "repeat")
+    {
+        return raoe::render::texture_wrap::repeat;
+    }
+    if(str == "mirrored_repeat")
+    {
+        return raoe::render::texture_wrap::mirrored_repeat;
+    }
+
+    raoe::ensure("Unknown texture wrap mode: {}. Defaulting to clamp_to_edge.", str);
+    return raoe::render::texture_wrap::clamp_to_edge;
+}
+
+raoe::render::texture_filter string_to_texture_filter(std::string_view str)
+{
+    if(str == "nearest" || str == "point")
+    {
+        return raoe::render::texture_filter::nearest;
+    }
+    if(str == "linear")
+    {
+        return raoe::render::texture_filter::linear;
+    }
+
+    raoe::ensure("Unknown texture filter mode: {}. Defaulting to nearest.", str);
+    return raoe::render::texture_filter::nearest;
+}
+
 raoe::render::texture_2d raoe::engine::asset_loader<raoe::render::typed_texture<
     raoe::render::texture_type::texture_2d>>::load_asset(const asset_load_params& file_params)
 {
@@ -63,7 +101,41 @@ raoe::render::texture_2d raoe::engine::asset_loader<raoe::render::typed_texture<
         default: break;
     }
 
-    auto texture = render::texture_2d(texture_data, fmt, glm::ivec2(width, height), render::texture_params {}, true);
+    // pull data from the meta file
+    render::texture_params texture_params;
+    bool use_mipmaps = true;
+    if(file_params.metadata != nullptr)
+    {
+        if(auto texture_table = (*file_params.metadata)["texture"])
+        {
+            if(const std::optional<std::string_view> wrap_u = texture_table["wrap_u"].value<std::string_view>())
+            {
+                texture_params.wrap_u = string_to_texture_wrap(*wrap_u);
+            }
+            if(const std::optional<std::string_view> wrap_v = texture_table["wrap_v"].value<std::string_view>())
+            {
+                texture_params.wrap_v = string_to_texture_wrap(*wrap_v);
+            }
+            if(const std::optional<std::string_view> wrap_w = texture_table["wrap_w"].value<std::string_view>())
+            {
+                texture_params.wrap_w = string_to_texture_wrap(*wrap_w);
+            }
+            if(const std::optional<std::string_view> filter_min = texture_table["filter_min"].value<std::string_view>())
+            {
+                texture_params.filter_min = string_to_texture_filter(*filter_min);
+            }
+            if(const std::optional<std::string_view> filter_mag = texture_table["filter_mag"].value<std::string_view>())
+            {
+                texture_params.filter_mag = string_to_texture_filter(*filter_mag);
+            }
+            if(const std::optional<bool> mipmaps = texture_table["mipmaps"].value<bool>())
+            {
+                use_mipmaps = *mipmaps;
+            }
+        }
+    }
+
+    auto texture = render::texture_2d(texture_data, fmt, glm::ivec2(width, height), texture_params, use_mipmaps);
     stbi_image_free(data);
     return texture;
 }
