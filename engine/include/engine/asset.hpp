@@ -262,7 +262,7 @@ namespace raoe::engine
                 asset_loader<std::string>::load_asset({.file_stream = meta_file, .file_path = meta_path});
             if(const auto result = toml::parse(meta_content, meta_path.string_view()); result.succeeded())
             {
-                meta.m_meta_table = std::move(result.table());
+                meta.m_meta_table = result.table();
             }
         }
 
@@ -286,4 +286,13 @@ template<>
 struct raoe::engine::asset_loader<raoe::render::texture_2d>
 {
     static render::texture_2d load_asset(const asset_load_params&);
+};
+
+template<typename T>
+struct std::hash<raoe::engine::asset_handle<T>>
+{
+    std::size_t operator()(const raoe::engine::asset_handle<T>& asset) const noexcept
+    {
+        return std::hash<T*>()(asset.get());
+    }
 };

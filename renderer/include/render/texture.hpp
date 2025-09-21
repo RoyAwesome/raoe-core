@@ -84,6 +84,8 @@ namespace raoe::render
     class texture
     {
       public:
+        friend struct std::hash<texture>;
+
         ~texture() { free_gpu_data(); }
 
         [[nodiscard]] uint32 native_id() const { return m_native_id; }
@@ -120,8 +122,6 @@ namespace raoe::render
         {
         }
 
-        uint32_t m_native_id = 0;
-
         texture(texture&& other) noexcept
             : m_native_id(std::exchange(other.m_native_id, {}))
             , m_data(std::move(std::exchange(other.m_data, {})))
@@ -146,6 +146,8 @@ namespace raoe::render
             m_texture_type = std::exchange(other.m_texture_type, texture_type::none);
             return *this;
         }
+
+        uint32_t m_native_id = 0;
 
       private:
         std::vector<std::byte> m_data;
@@ -292,3 +294,60 @@ namespace raoe::render
     inline constexpr auto shader_uniform_type_v<render_texture> = renderer_type::texture2d;
 
 }
+
+template<>
+struct std::hash<raoe::render::texture_format>
+{
+    std::size_t operator()(const raoe::render::texture_format& format) const noexcept
+    {
+        return static_cast<std::size_t>(format);
+    }
+};
+
+template<>
+struct std::hash<raoe::render::texture_type>
+{
+    std::size_t operator()(const raoe::render::texture_type& type) const noexcept
+    {
+        return static_cast<std::size_t>(type);
+    }
+};
+
+template<>
+struct std::hash<raoe::render::texture_params>
+{
+    std::size_t operator()(const raoe::render::texture_params& params) const noexcept
+    {
+        std::size_t hash = 0;
+        hash = raoe::hash_combine(hash, static_cast<int>(params.wrap_u));
+        hash = raoe::hash_combine(hash, static_cast<int>(params.wrap_v));
+        hash = raoe::hash_combine(hash, static_cast<int>(params.wrap_w));
+        hash = raoe::hash_combine(hash, static_cast<int>(params.filter_min));
+        hash = raoe::hash_combine(hash, static_cast<int>(params.filter_mag));
+        return hash;
+    }
+};
+
+template<>
+struct std::hash<raoe::render::texture>
+{
+    std::size_t operator()(const raoe::render::texture& texture) const noexcept
+    {
+        std::size_t seed = 0;
+        seed = raoe::hash_combine(seed, texture.m_native_id);
+        for(auto i : texture.m_data)
+        {
+            seed = raoe::hash_combine(seed, static_cast<int>(i));
+        }
+        seed = raoe::hash_combine(seed, std::hash<raoe::render::texture_format> {}(texture.m_format));
+        seed = raoe::hash_combine(seed, texture.m_array_size);
+        seed = raoe::hash_combine(seed, texture.m_mipmaps);
+        seed = raoe::hash_combine(seed, texture.m_dim.y);
+        seed = raoe::hash_combine(seed, texture.m_dim.z);
+        seed = raoe::hash_combine(seed, texture.m_dim.x);
+        seed = raoe::hash_combine(seed, std::hash<raoe::render::texture_params> {}(texture.m_params));
+        seed = raoe::hash_combine(seed, std::hash<raoe::render::texture_type> {}(texture.m_texture_type));
+
+        return seed;
+    }
+};
