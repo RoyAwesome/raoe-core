@@ -19,6 +19,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "core/core.hpp"
 #include "glm/ext.hpp"
 
+#include <any>
+
 namespace raoe::render
 {
 
@@ -352,6 +354,70 @@ namespace raoe::render
             return ele;
         }
     };
+
+    template<template<typename> class THandle, typename T>
+    concept asset_handle =
+        requires(THandle<T> a) {
+            { a.get() } -> std::convertible_to<T*>;
+            { std::hash<THandle<T>> {}(a) } -> std::convertible_to<std::size_t>;
+        } && std::is_move_constructible_v<THandle<T>> && std::is_move_assignable_v<THandle<T>> &&
+        std::is_copy_assignable_v<THandle<T>> && std::is_copy_constructible_v<THandle<T>> &&
+        std::convertible_to<THandle<T>, bool>;
+
+    template<typename T>
+    struct generic_handle
+    {
+        struct vtable
+        {
+            T* (*get)(const std::any& handle);
+            bool (*is_valid)(const std::any& handle);
+        };
+        template<template<typename> class THandle>
+        generic_handle(const THandle<T>& handle)
+            : m_handle(handle)
+        {
+            m_vtable = vtable {
+                .get = [](const std::any& h) -> T* { return std::any_cast<THandle<T>>(h).get(); },
+                .is_valid = [](const std::any& h) -> bool { return static_cast<bool>(std::any_cast<THandle<T>>(h)); },
+            };
+        }
+
+        template<typename U>
+            requires std::derived_from<U, T>
+        generic_handle(const generic_handle<U>& handle)
+            : m_handle(handle)
+        {
+            m_vtable = vtable {
+                .get = [](const std::any& h) -> T* { return std::any_cast<generic_handle<U>>(h).get(); },
+                .is_valid = [](const std::any& h) -> bool {
+                    return static_cast<bool>(std::any_cast<generic_handle<U>>(h));
+                },
+            };
+        }
+
+        generic_handle()
+            : m_handle(std::any())
+        {
+            m_vtable = vtable {
+                .get = [](const std::any&) -> T* { return nullptr; },
+                .is_valid = [](const std::any&) -> bool { return false; },
+            };
+        }
+
+        T* operator->() const noexcept { return get(); }
+        T* get() const { return m_vtable.get(m_handle); }
+        operator bool() const { return m_vtable.is_valid(m_handle); }
+
+        bool operator==(const generic_handle& rhs) const { return get() == rhs.get(); }
+        bool operator==(std::nullptr_t) const { return get() == nullptr; }
+
+      private:
+        std::any m_handle;
+        vtable m_vtable;
+    };
+    // Deduction guide to convert shared ptr to generic_handle
+    template<typename T>
+    generic_handle(std::shared_ptr<T>) -> generic_handle<T>;
 
 }
 

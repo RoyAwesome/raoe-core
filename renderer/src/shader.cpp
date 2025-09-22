@@ -400,6 +400,59 @@ namespace raoe::render::shader
         // sort the inputs by location
         std::ranges::sort(m_inputs, [](const input& a, const input& b) { return a.location() < b.location(); });
     }
+    void material::use()
+    {
+
+        check_if(m_shader != nullptr, "Material shader cannot be null");
+        m_shader->use();
+        for(auto& [location, name, data] : m_uniforms)
+        {
+            if(!location)
+            {
+                spdlog::warn("Attempting to set uniform {} in shader {}, but it has no location", name,
+                             m_shader->debug_name());
+                continue;
+            }
+            if(!m_shader->is_valid_uniform_location(*location))
+            {
+                spdlog::warn("Attempting to set uniform {} in shader {}, but the location {} is not valid", name,
+                             m_shader->debug_name(), *location);
+                continue;
+            }
+            std::visit(
+                [&, this]<typename T0>(T0&& value) {
+                    using T = std::decay_t<T0>;
+                    if constexpr(std::is_same_v<T, std::monostate>)
+                    {
+                        spdlog::warn("Attempting to set uniform {} in shader {}, but it is not set", name,
+                                     m_shader->debug_name());
+                    }
+                    else if constexpr(is_valid_renderer_type(shader_uniform_type_v<T>) &&
+                                      !is_texture_type(shader_uniform_type_v<T>))
+                    {
+                        m_shader->uniforms()[*location] = value;
+                    }
+                    else if constexpr(std::is_same_v<T, generic_handle<texture>>)
+                    {
+                        if(value != nullptr)
+                        {
+                            if(!value.get()->has_gpu_data())
+                            {
+                                value.get()->upload_to_gpu();
+                            }
+
+                            m_shader->uniforms()[*location] = *value.get();
+                        }
+                        else
+                        {
+                            spdlog::warn("Attempting to set uniform {} in shader {}, but the texture handle is null",
+                                         name, m_shader->debug_name());
+                        }
+                    }
+                },
+                data);
+        }
+    }
 
     void uniform::set_uniform(const std::span<const std::byte> data, const int32 element_count) const
     {

@@ -302,6 +302,39 @@ namespace raoe::render::shader
         // Returns a string useful for debugging the shader, including its uniforms, inputs, and uniform blocks.
         std::string debug_string() const;
 
+        std::optional<uint32> find_uniform_location(const std::string& name) const
+        {
+            if(const auto itr = m_uniform_names.find(name); itr != m_uniform_names.end())
+            {
+                return itr->second;
+            }
+            return std::nullopt;
+        }
+
+        bool is_valid_uniform_location(const uint32 location) const { return m_uniforms.contains(location); }
+        bool has_uniform(const std::string& name) const { return m_uniform_names.contains(name); }
+
+        std::optional<uint32> find_uniform_block_location(const std::string& name) const
+        {
+            if(const auto itr = m_uniform_block_names.find(name); itr != m_uniform_block_names.end())
+            {
+                return itr->second;
+            }
+            return std::nullopt;
+        }
+        bool is_valid_uniform_block_location(const uint32 binding) const { return m_uniform_blocks.contains(binding); }
+
+        template<typename T>
+        bool type_check_uniform(const uint32 location)
+        {
+            // get the uniform
+            if(const auto it = m_uniforms.find(location); it != m_uniforms.end())
+            {
+                return it->second.type() == shader_uniform_type_v<T>;
+            }
+            return false;
+        }
+
       private:
         explicit shader(const uint32 id, std::string debug_name)
             : m_native_id(id)
@@ -594,62 +627,126 @@ namespace raoe::render::shader
 
     class material
     {
+        using shader_uniform_variant =
+            std::variant<std::monostate, generic_handle<texture>, glm::vec2, glm::vec3, glm::vec4, glm::u8vec4, uint8,
+                         int8, uint16, int16, uint32, int32, float, double>;
+        struct uniform_info
+        {
+            std::optional<uint32> location;
+            std::string name;
+            shader_uniform_variant data;
+        };
+
       public:
+        friend struct setter;
         struct setter
         {
+            friend class material;
+
           private:
             material& m_this;
-            uint32 m_location = 0;
+            uniform_info& m_uniform;
+            explicit setter(material& m_this, uniform_info& uniform)
+                : m_this(m_this)
+                , m_uniform(uniform)
+            {
+            }
 
           public:
-            explicit setter(material& m_this, const uint32 location = 0)
-                : m_this(m_this)
-                , m_location(location)
-            {
-                check_if(location > 0, "Cannot set uniform for material without a valid location");
-            }
             template<typename T>
                 requires(is_valid_renderer_type(shader_uniform_type_v<T>) && !is_texture_type(shader_uniform_type_v<T>))
             setter& operator=(T&& value)
             {
-                m_this.set_uniform(value);
+
+                if(m_uniform.location && m_this.shader_handle()->is_valid_uniform_location(*m_uniform.location))
+                {
+                    check_if(m_this.shader_handle()->type_check_uniform<T>(*m_uniform.location),
+                             "Uniform type mismatch when setting uniform {} in shader {}", m_uniform.name,
+                             m_this.shader_handle()->debug_name());
+                }
+                m_uniform.data = std::forward<T>(value);
                 return *this;
             }
         };
         friend struct setter;
 
-        explicit material(std::shared_ptr<shader> shader)
+        explicit material(generic_handle<shader> shader)
             : m_shader(std::move(shader))
         {
             check_if(m_shader != nullptr, "Material shader cannot be null");
         }
 
-        setter operator[](const std::string_view name) { return setter {*this, get_location_for_name(name)}; }
-        setter operator[](const uint32 location) { return setter {*this, location}; }
+        [[nodiscard]] generic_handle<shader>& shader_handle() { return m_shader; }
+        [[nodiscard]] const generic_handle<shader>& shader_handle() const { return m_shader; }
 
-      private:
-        uint32 get_location_for_name(const std::string_view name) const
-        {
-            const auto it = m_shader->m_uniform_names.find(std::string(name));
-            if(it == m_shader->m_uniform_names.end())
-            {
-                return 0;
-            }
-            return it->second;
-        }
+        setter operator[](const std::string& name) { return setter {*this, find_or_create_uniform_for(name)}; }
+        setter operator[](const uint32 location) { return setter {*this, find_or_create_uniform_for(location)}; }
 
         template<typename T>
             requires(is_valid_renderer_type(shader_uniform_type_v<T>) && !is_texture_type(shader_uniform_type_v<T>))
-        void set_uniform(const int32 location, T&& value)
+        void set_uniform(const std::string& name, T value)
         {
-            shader_uniform_variant variant = std::forward<T>(value);
-            m_uniforms.insert_or_assign(location, variant);
+            auto& [location, _, data] = find_or_create_uniform_for(name);
+            if(location && m_shader->is_valid_uniform_location(*location))
+            {
+                check_if(m_shader->type_check_uniform<T>(*location),
+                         "Uniform type mismatch when setting uniform {} in shader {}", name, m_shader->debug_name());
+            }
+            data = value;
         }
-        std::shared_ptr<shader> m_shader;
-        using shader_uniform_variant =
-            std::variant<std::monostate, std::shared_ptr<texture>, glm::vec2, glm::vec3, glm::vec4, glm::u8vec4, uint8,
-                         int8, uint16, int16, uint32, int32, float, double>;
-        std::unordered_map<uint32, shader_uniform_variant> m_uniforms;
+
+        void set_uniform(const std::string& name, const generic_handle<texture>& value)
+        {
+            auto& [location, _, data] = find_or_create_uniform_for(name);
+            data = value;
+        }
+
+        void set_uniform(const uint32 location, const shader_uniform_variant& value)
+        {
+            auto& uniform = find_or_create_uniform_for(location);
+            uniform.data = value;
+        }
+
+        void use();
+
+      private:
+        [[nodiscard]] uniform_info& find_or_create_uniform_for(const std::string& name)
+        {
+            for(auto& uniform : m_uniforms)
+            {
+                if(uniform.name == name)
+                {
+                    return uniform;
+                }
+            }
+            // otherwise create it
+            m_uniforms.push_back(uniform_info {.location = m_shader->find_uniform_location(name),
+                                               .name = std::string(name),
+                                               .data = std::monostate {}});
+            return m_uniforms.back();
+        }
+
+        [[nodiscard]] uniform_info& find_or_create_uniform_for(const uint32 location)
+        {
+            for(auto& uniform : m_uniforms)
+            {
+                if(uniform.location && *uniform.location == location)
+                {
+                    return uniform;
+                }
+            }
+            // otherwise create it
+            if(!m_shader->is_valid_uniform_location(location))
+            {
+                panic("No such uniform location {} in shader {}", location, m_shader->debug_name());
+            }
+
+            m_uniforms.push_back(uniform_info {.location = location, .name = std::string(), .data = std::monostate {}});
+            return m_uniforms.back();
+        }
+
+        generic_handle<shader> m_shader;
+        std::vector<uniform_info> m_uniforms;
     };
 
 }

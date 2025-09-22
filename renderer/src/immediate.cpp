@@ -64,7 +64,7 @@ struct render_batch
     }
 
     raoe::render::mesh_element_builder<raoe::render::vertex_pos_uv_color_normal> mesh_builder;
-    raoe::render::generic_handle<raoe::render::texture_2d> texture;
+    raoe::render::generic_handle<raoe::render::shader::material> material;
     glm::mat4 next_transform = glm::identity<glm::mat4>();
     int32 next_depth = 0;
 };
@@ -73,15 +73,15 @@ struct immediate_render_data
 {
 
     template<std::invocable<render_batch&> TBatchBuilder>
-    immediate_render_data& begin_batch(const raoe::render::generic_handle<raoe::render::texture_2d>& texture,
+    immediate_render_data& begin_batch(const raoe::render::generic_handle<raoe::render::shader::material>& material,
                                        TBatchBuilder&& batch_builder)
     {
         auto it = std::find_if(batches.begin(), batches.end(),
-                               [&texture](const render_batch& batch) { return batch.texture == texture; });
+                               [&material](const render_batch& batch) { return batch.material == material; });
 
         if(it == batches.end())
         {
-            batches.push_back(render_batch {.mesh_builder = {}, .texture = texture});
+            batches.push_back(render_batch {.mesh_builder = {}, .material = material});
             it = batches.end() - 1;
         }
 
@@ -96,24 +96,32 @@ struct immediate_render_data
 };
 static immediate_render_data immediate_data;
 
+raoe::render::generic_handle<raoe::render::shader::material> create_material_for_texture(
+    const raoe::render::generic_handle<raoe::render::texture_2d>& texture)
+{
+    using namespace raoe::render;
+    auto material = std::make_shared<shader::material>(generic_handle(get_render_context().generic_2d_shader));
+    material->set_uniform("texture0", texture);
+    return {material};
+}
+
 void raoe::render::draw_2d_texture_rect(const glm::vec2 rect_min, const glm::vec2 rect_max,
                                         const generic_handle<texture_2d>& texture, const glm::vec2 uv_min,
                                         const glm::vec2 uv_max, const glm::u8vec4& color, const float rotation,
                                         const glm::vec2& origin)
 {
-    immediate_data.begin_batch(texture, [&](render_batch& batch) {
+    immediate_data.begin_batch(create_material_for_texture(texture), [&](render_batch& batch) {
         batch.push_rotation_rad(rotation, origin).add_quad(rect_min, rect_max, uv_min, uv_max, color).pop_transform();
     });
 }
 void raoe::render::draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect_max, const glm::u8vec4& color,
                                 const float rotation, const glm::vec2& origin)
 {
-    immediate_data.begin_batch(
-        generic_handle<texture_2d>(get_internal_render_assets().white_texture), [&](render_batch& batch) {
-            batch.push_rotation_rad(rotation, origin)
-                .add_quad(rect_min, rect_max, glm::vec2(0.0f, 0.0f), glm::vec2(1.0f, 1.0f), color)
-                .pop_transform();
-        });
+    immediate_data.begin_batch(get_internal_render_assets().white_material, [&](render_batch& batch) {
+        batch.push_rotation_rad(rotation, origin)
+            .add_quad(rect_min, rect_max, glm::vec2(0.0f, 0.0f), glm::vec2(1.0f, 1.0f), color)
+            .pop_transform();
+    });
 }
 
 void raoe::render::immediate::begin_immediate_batch()
@@ -124,16 +132,16 @@ void raoe::render::immediate::begin_immediate_batch()
 
 void raoe::render::immediate::draw_immediate_batch(const uniform_buffer& engine_ubo, const uniform_buffer& camera_ubo)
 {
-    get_render_context().generic_2d_shader->use();
-    get_render_context().generic_2d_shader->uniform_blocks()[0] = engine_ubo; // Engine UBO is at binding point 0
-    get_render_context().generic_2d_shader->uniform_blocks()[1] = camera_ubo; // Camera UBO is at binding point 1
-    for(const auto& [mesh_builder, texture, next_transform, next_depth] : immediate_data.batches)
+    shader::material* current_material = nullptr;
+    for(const auto& [mesh_builder, material, next_transform, next_depth] : immediate_data.batches)
     {
-        if(!texture->has_gpu_data())
+        if(material.get() != current_material)
         {
-            texture->upload_to_gpu();
+            current_material = material.get();
+            current_material->use();
+            current_material->shader_handle()->uniform_blocks()[0] = engine_ubo; // Engine UBO is at binding point 0
+            current_material->shader_handle()->uniform_blocks()[1] = camera_ubo; // Camera UBO is at binding point 1
         }
-        get_render_context().generic_2d_shader->uniforms()["tex"] = *texture.get();
 
         auto mesh = mesh_builder.build();
 

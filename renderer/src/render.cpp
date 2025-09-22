@@ -37,13 +37,18 @@ namespace raoe::render
         check_if(ctx.error_shader != nullptr, "Error shader is null");
         check_if(ctx.error_texture != nullptr, "Error texture is null");
         check_if(ctx.generic_2d_shader != nullptr, "Generic 2D shader is null");
+        check_if(ctx.generic_2d_shader->has_uniform("texture0"),
+                 "Generic 2d shader missing 'texture0' uniform.  It needs it for 2D texture rendering");
         check_if(!!ctx.load_callback, "Load callback is null");
         _static_render_context = ctx;
         if(!_static_render_context->error_texture->has_gpu_data())
         {
             _static_render_context->error_texture->upload_to_gpu();
         }
-        get_internal_render_assets(); // Ensure internal assets are created
+        auto& [white_texture, white_material] = get_internal_render_assets(); // Ensure internal assets are created
+        // Recreate the white material, in case the generic 2d shader changed
+        white_material = std::make_shared<shader::material>(generic_handle(ctx.generic_2d_shader));
+        white_material->set_uniform("texture0", generic_handle(white_texture));
     }
     void shutdown_renderer()
     {

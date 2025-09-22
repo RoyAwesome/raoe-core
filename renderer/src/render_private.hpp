@@ -26,9 +26,14 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 namespace raoe::render
 {
+    namespace shader
+    {
+        class material;
+    }
     struct internal_render_assets
     {
         std::shared_ptr<texture_2d> white_texture;
+        std::shared_ptr<shader::material> white_material;
     };
 
     internal_render_assets& get_internal_render_assets();
