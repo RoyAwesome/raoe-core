@@ -144,7 +144,6 @@ void raoe::render::immediate::draw_immediate_batch(const uniform_buffer& engine_
         }
 
         auto mesh = mesh_builder.build();
-
-        render_mesh_element(*mesh);
+        render_mesh_element(mesh);
     }
 }

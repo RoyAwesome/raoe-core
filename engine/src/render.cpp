@@ -215,7 +215,19 @@ void draw_frame(flecs::iter itr)
             camera = main_camera;
         }
 
-        raoe::render::render_mesh(*camera.get(), *render_info->mesh, *render_transform);
+        const auto& [camera_ubo] = itr.world().entity(raoe::engine::entities::engine_assets::camera_ubo).get<ubo>();
+        const auto& [engine_ubo] = itr.world().entity(raoe::engine::entities::engine_assets::engine_ubo).get<ubo>();
+
+        raoe::check_if(!!camera_ubo, "Camera UBO is null");
+        raoe::check_if(!!engine_ubo, "Engine UBO is null");
+
+        camera_ubo->set_data(camera_uniform {
+            .camera_matrix = camera->get_camera_matrix(),
+            .projection_matrix = camera->get_projection_matrix(),
+            .proj_camera = camera->get_view_projection_matrix(),
+        });
+
+        raoe::render::render_mesh(render_info->mesh, *engine_ubo, *camera_ubo);
     }
 }
 

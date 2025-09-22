@@ -34,6 +34,21 @@ namespace raoe::render
     class mesh_element
     {
       public:
+        mesh_element() = default;
+        template<type_described TVertexData, index_buffer_type TIndexType>
+        explicit mesh_element(const std::span<TVertexData> vertex_elements, const std::span<TIndexType> index_elements)
+        {
+            set_data(vertex_elements, index_elements);
+        }
+        template<std::ranges::range TVertexRange, std::ranges::range TIndexRange>
+            requires type_described<std::ranges::range_value_t<std::remove_cvref_t<TVertexRange>>> &&
+                     index_buffer_type<std::ranges::range_value_t<std::remove_cvref_t<TIndexRange>>>
+        explicit mesh_element(TVertexRange&& vertex_elements, TIndexRange&& index_elements)
+        {
+            set_data(std::span(std::ranges::data(vertex_elements), std::ranges::size(vertex_elements)),
+                     std::span(std::ranges::data(index_elements), std::ranges::size(index_elements)));
+        }
+
         // Typed set_data with an index.  Takes a span of vertex data and a span of index data and uses that as a mesh
         // element.
         template<type_described TVertexData, index_buffer_type TIndexType>
@@ -46,15 +61,12 @@ namespace raoe::render
         }
 
         template<std::ranges::range TVertexRange, std::ranges::range TIndexRange>
-            requires type_described<std::ranges::range_value_t<TVertexRange>> &&
-                     index_buffer_type<std::ranges::range_value_t<TIndexRange>>
+            requires type_described<std::ranges::range_value_t<std::remove_cvref_t<TVertexRange>>> &&
+                     index_buffer_type<std::ranges::range_value_t<std::remove_cvref_t<TIndexRange>>>
         mesh_element& set_data(TVertexRange&& vertex_elements, TIndexRange&& index_elements)
         {
-            auto vertex_elements_data =
-                std::span(std::ranges::data(vertex_elements), std::ranges::size(vertex_elements));
-            auto index_elements_data = std::span(std::ranges::data(index_elements), std::ranges::size(index_elements));
-
-            return set_data(vertex_elements_data, index_elements_data);
+            return set_data(std::span(std::ranges::data(vertex_elements), std::ranges::size(vertex_elements)),
+                            std::span(std::ranges::data(index_elements), std::ranges::size(index_elements)));
         }
 
         template<std::ranges::range TVertexRange>
@@ -156,7 +168,7 @@ namespace raoe::render
 
     struct mesh
     {
-        using mesh_part = std::tuple<std::shared_ptr<mesh_element>, std::shared_ptr<shader::shader>>;
+        using mesh_part = std::tuple<generic_handle<mesh_element>, generic_handle<shader::material>>;
 
         mesh() = default;
         mesh(mesh&&) = default;
@@ -170,9 +182,9 @@ namespace raoe::render
         {
         }
 
-        explicit mesh(const std::shared_ptr<mesh_element>& in_element,
-                      const std::shared_ptr<shader::shader>& in_shader = {})
-            : m_elements({std::make_tuple(in_element, in_shader)})
+        explicit mesh(const generic_handle<mesh_element>& in_element,
+                      const generic_handle<shader::material>& in_material = {})
+            : m_elements({std::make_tuple(in_element, in_material)})
         {
         }
 

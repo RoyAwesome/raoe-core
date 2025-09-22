@@ -127,12 +127,7 @@ namespace raoe::render
     class mesh_element_builder
     {
       public:
-        [[nodiscard]] std::shared_ptr<mesh_element> build() const
-        {
-            auto element = std::make_shared<mesh_element>();
-            element->set_data(vertices, indices);
-            return element;
-        }
+        [[nodiscard]] mesh_element build() const { return mesh_element(vertices, indices); }
 
         mesh_element_builder& add_vertex_position(glm::vec3 position)
         {
@@ -285,26 +280,19 @@ namespace raoe::render
     class mesh_builder
     {
       public:
-        mesh_builder& with_shader(const std::shared_ptr<shader::shader>& shader)
-        {
-            m_pending_shader = shader;
-            return *this;
-        }
-
         template<type_described TVertexFormat, std::invocable<void(mesh_element_builder<TVertexFormat>&)> TBuilderFunc>
-        mesh_builder& add_element(TBuilderFunc&& builder_func)
+        mesh_builder& add_element(const generic_handle<shader::material>& material, TBuilderFunc&& builder_func)
         {
             mesh_element_builder<TVertexFormat> builder;
             builder_func(builder);
-            m_elements.push_back({builder.build(), m_pending_shader});
+            m_elements.push_back({std::make_shared<mesh>(std::move(builder.build())), material});
             return *this;
         }
 
-        std::shared_ptr<mesh> build() { return std::make_shared<mesh>(m_elements); }
+        mesh build() { return mesh(m_elements); }
 
       private:
-        std::shared_ptr<shader::shader> m_pending_shader;
-        using mesh_part = std::tuple<std::shared_ptr<mesh_element>, std::shared_ptr<shader::shader>>;
+        using mesh_part = std::tuple<generic_handle<mesh_element>, generic_handle<shader::material>>;
         std::vector<mesh_part> m_elements;
     };
 }

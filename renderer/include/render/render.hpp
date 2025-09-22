@@ -108,9 +108,10 @@ namespace raoe::render
     render_context& get_render_context();
 
     std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,
-                                                              const glm::u8vec4& color2, const int square_size);
+                                                              const glm::u8vec4& color2, int square_size);
 
-    void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform);
+    void render_mesh(const generic_handle<mesh>& mesh, const uniform_buffer& engine_ubo,
+                     const uniform_buffer& camera_ubo);
     void render_mesh_element(mesh_element& mesh_element);
     void clear_surface(glm::u8vec4 color);
 }

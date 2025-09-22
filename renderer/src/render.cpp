@@ -154,20 +154,23 @@ namespace raoe::render
         return vao;
     }
 
-    void render_mesh(const camera& camera, const mesh& mesh, const render_transform& render_transform)
+    void render_mesh(const generic_handle<mesh>& mesh, const uniform_buffer& engine_ubo,
+                     const uniform_buffer& camera_ubo)
     {
-        // loop through each element of the mesh and render it
-        for(auto&& [mesh_element, shader] : mesh.m_elements)
+        for(auto&& [mesh_element, material] : mesh->m_elements)
         {
-            check_if(!!mesh_element, "Mesh element is null");
-            // determine which shader we use
-            shader::shader* s = shader ? shader.get() : get_render_context().error_shader.get();
-            // write the uniforms
-            s->use();
-            s->uniforms()["mvp"] = camera.get_camera_matrix() * render_transform.cached_world_transform;
-            s->uniforms()["tex"] = *get_render_context().error_texture;
+            if(mesh_element)
+            {
+                // if no material, use the error material.
+                if(material)
+                {
+                    material->use();
+                    material->shader_handle()->uniform_blocks()[0] = engine_ubo; // Engine UBO is at binding point 0
+                    material->shader_handle()->uniform_blocks()[1] = camera_ubo; // Camera UBO is at binding point 1
+                }
 
-            render_mesh_element(*mesh_element);
+                render_mesh_element(*mesh_element.get());
+            }
         }
     }
 
@@ -229,5 +232,4 @@ namespace raoe::render
                      static_cast<float>(color.b) / 255.f, static_cast<float>(color.a) / 255.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
-
 }
