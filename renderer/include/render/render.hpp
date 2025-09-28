@@ -107,11 +107,38 @@ namespace raoe::render
     void shutdown_renderer();
     render_context& get_render_context();
 
+    struct engine_draw_context
+    {
+        generic_handle<uniform_buffer> engine_ubo;
+    };
+
+    struct render_task_params
+    {
+        shader::shader& shader;
+        const render_context& renderer_context;
+        const engine_draw_context& engine_draw_ctx;
+    };
+
+    struct render_task
+    {
+        using render_task_func_t = void(const render_task_params&);
+        std::move_only_function<render_task_func_t> m_task;
+        draw_pass m_draw_pass = draw_pass::pre_pass;
+        generic_handle<shader::shader> m_shader; // Shader that this task wants to use.  Used for sorting.
+    };
+
     std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,
                                                               const glm::u8vec4& color2, int square_size);
 
-    void render_mesh(const generic_handle<mesh>& mesh, const uniform_buffer& engine_ubo,
-                     const uniform_buffer& camera_ubo);
-    void render_mesh_element(mesh_element& mesh_element);
+    void submit_render_task(render_task task);
+
+    template<std::invocable<const render_task_params&> T>
+    void submit_render_task(const draw_pass pass, const generic_handle<shader::shader>& shader, T&& task)
+    {
+        submit_render_task(render_task {.m_task = std::forward<T>(task), .m_draw_pass = pass, .m_shader = shader});
+    }
+
+    void draw(const engine_draw_context& draw_context, const generic_handle<uniform_buffer>& immediate_2d_camera);
+
     void clear_surface(glm::u8vec4 color);
 }

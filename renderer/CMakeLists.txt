@@ -16,7 +16,7 @@ raoe_add_module(
         "src/immediate.cpp"
         COMPILE_DEFINITIONS
         PRIVATE
-        "GLM_ENABLE_EXPERIMENTAL=1" # disable exceptions in toml
+        "GLM_ENABLE_EXPERIMENTAL"
         DEPENDENCIES
         PUBLIC
         raoe::core

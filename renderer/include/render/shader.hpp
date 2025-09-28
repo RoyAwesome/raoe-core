@@ -27,8 +27,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "core/stream.hpp"
 
 #include "render/buffer.hpp"
-#include "texture.hpp"
-#include "types.hpp"
+#include "render/texture.hpp"
+#include "render/types.hpp"
 
 namespace raoe::render::shader
 {
@@ -670,14 +670,16 @@ namespace raoe::render::shader
         };
         friend struct setter;
 
-        explicit material(generic_handle<shader> shader)
+        explicit material(generic_handle<shader> shader, const draw_pass pass = draw_pass::opaque_3d)
             : m_shader(std::move(shader))
+            , m_draw_pass(pass)
         {
             check_if(m_shader != nullptr, "Material shader cannot be null");
         }
 
         [[nodiscard]] generic_handle<shader>& shader_handle() { return m_shader; }
         [[nodiscard]] const generic_handle<shader>& shader_handle() const { return m_shader; }
+        [[nodiscard]] draw_pass pass() const { return m_draw_pass; }
 
         setter operator[](const std::string& name) { return setter {*this, find_or_create_uniform_for(name)}; }
         setter operator[](const uint32 location) { return setter {*this, find_or_create_uniform_for(location)}; }
@@ -747,6 +749,7 @@ namespace raoe::render::shader
 
         generic_handle<shader> m_shader;
         std::vector<uniform_info> m_uniforms;
+        draw_pass m_draw_pass = draw_pass::opaque_3d;
     };
 
 }

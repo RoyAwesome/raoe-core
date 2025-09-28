@@ -16,8 +16,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
  */
 
 #include "render/immediate.hpp"
-
 #include "render/mesh_builder.hpp"
+
 #include "render_private.hpp"
 
 #include <concepts>
@@ -123,27 +123,52 @@ void raoe::render::draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect
             .pop_transform();
     });
 }
-
-void raoe::render::immediate::begin_immediate_batch()
+void raoe::render::draw_mesh(const generic_handle<mesh>& mesh, glm::mat4 transform,
+                             const generic_handle<uniform_buffer>& camera_ubo)
 {
-    // Reset the immediate data for a new batch
-    immediate_data = {};
+    check_if(mesh, "Mesh is null");
+    for(auto& [mesh_part, material] : mesh->m_elements)
+    {
+        auto pass = draw_pass::opaque_3d;
+        if(material)
+        {
+            pass = material->pass();
+        }
+        submit_render_task(pass, material ? material->shader_handle() : get_render_context().error_shader,
+                           [mesh_part, material, transform, camera = camera_ubo](const render_task_params& params) {
+                               if(material)
+                               {
+                                   material->use();
+                               }
+                               if(camera)
+                               {
+                                   if(params.shader.is_valid_uniform_block_location(1))
+                                   {
+                                       params.shader.uniform_blocks()[1] = *camera; // Camera UBO is at 1
+                                   }
+                               }
+                               if(params.shader.has_uniform("model"))
+                               {
+                                   params.shader.uniforms()["model"] = transform;
+                               }
+                               render_mesh_element(*mesh_part.get());
+                           });
+    }
 }
 
-void raoe::render::immediate::draw_immediate_batch(const uniform_buffer& engine_ubo, const uniform_buffer& camera_ubo)
+void raoe::render::enqueue_immediate_draw_commands(const generic_handle<uniform_buffer>& immediate_2d_camera)
 {
-    shader::material* current_material = nullptr;
     for(const auto& [mesh_builder, material, next_transform, next_depth] : immediate_data.batches)
     {
-        if(material.get() != current_material)
-        {
-            current_material = material.get();
-            current_material->use();
-            current_material->shader_handle()->uniform_blocks()[0] = engine_ubo; // Engine UBO is at binding point 0
-            current_material->shader_handle()->uniform_blocks()[1] = camera_ubo; // Camera UBO is at binding point 1
-        }
+        submit_render_task(material->pass(), material->shader_handle(),
+                           [mesh = mesh_builder.build(), material,
+                            camera = immediate_2d_camera](const render_task_params& params) mutable {
+                               material->use();
+                               material->shader_handle()->uniform_blocks()[1] = *camera; //
 
-        auto mesh = mesh_builder.build();
-        render_mesh_element(mesh);
+                               render_mesh_element(mesh);
+                           });
     }
+
+    immediate_data = {};
 }

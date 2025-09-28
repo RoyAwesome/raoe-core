@@ -25,6 +25,8 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "glad/glad.h"
 
+#include <queue>
+
 namespace raoe::render
 {
 
@@ -32,6 +34,9 @@ namespace raoe::render
 
     static std::optional<render_context> _static_render_context;
     static std::optional<internal_render_assets> _static_internal_render_assets;
+
+    static std::optional<render_queue> _static_render_queue;
+
     void set_render_context(const render_context& ctx)
     {
         check_if(ctx.error_shader != nullptr, "Error shader is null");
@@ -40,6 +45,11 @@ namespace raoe::render
         check_if(ctx.generic_2d_shader->has_uniform("texture0"),
                  "Generic 2d shader missing 'texture0' uniform.  It needs it for 2D texture rendering");
         check_if(!!ctx.load_callback, "Load callback is null");
+        if(!_static_render_queue)
+        {
+            _static_render_queue.emplace();
+        }
+
         _static_render_context = ctx;
         if(!_static_render_context->error_texture->has_gpu_data())
         {
@@ -77,6 +87,10 @@ namespace raoe::render
 
         return *_static_internal_render_assets;
     }
+    render_queue& get_render_queue()
+    {
+        return *_static_render_queue;
+    }
 
     std::shared_ptr<texture_2d> generate_checkerboard_texture(const glm::ivec2& size, const glm::u8vec4& color1,
                                                               const glm::u8vec4& color2, const int square_size)
@@ -100,6 +114,11 @@ namespace raoe::render
                                                 .filter_min = texture_filter::nearest,
                                                 .filter_mag = texture_filter::nearest,
                                             });
+    }
+
+    void submit_render_task(render_task task)
+    {
+        get_render_queue().queues[std::to_underlying(task.m_draw_pass)].emplace(std::move(task));
     }
 
     std::tuple<int32, int32> get_size_and_gl_type(const renderer_type uniform_type)
@@ -154,22 +173,27 @@ namespace raoe::render
         return vao;
     }
 
-    void render_mesh(const generic_handle<mesh>& mesh, const uniform_buffer& engine_ubo,
-                     const uniform_buffer& camera_ubo)
+    void draw(const engine_draw_context& draw_context, const generic_handle<uniform_buffer>& immediate_2d_camera)
     {
-        for(auto&& [mesh_element, material] : mesh->m_elements)
+        enqueue_immediate_draw_commands(immediate_2d_camera);
+        shader::shader* current_shader = nullptr;
+        for(auto& task_queue : get_render_queue().queues)
         {
-            if(mesh_element)
+            while(!task_queue.empty())
             {
-                // if no material, use the error material.
-                if(material)
+                if(auto& task = task_queue.front(); task.m_task)
                 {
-                    material->use();
-                    material->shader_handle()->uniform_blocks()[0] = engine_ubo; // Engine UBO is at binding point 0
-                    material->shader_handle()->uniform_blocks()[1] = camera_ubo; // Camera UBO is at binding point 1
+                    if(current_shader != task.m_shader.get())
+                    {
+                        current_shader = task.m_shader.get();
+                        current_shader->use();
+                        current_shader->uniform_blocks()[0] = *draw_context.engine_ubo; // Engine UBO is at 0
+                    }
+                    task.m_task(render_task_params {.shader = *task.m_shader,
+                                                    .renderer_context = get_render_context(),
+                                                    .engine_draw_ctx = draw_context});
                 }
-
-                render_mesh_element(*mesh_element.get());
+                task_queue.pop();
             }
         }
     }

@@ -54,10 +54,35 @@ namespace raoe::render
     void draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect_max, const glm::u8vec4& color = colors::white,
                       float rotation = 0.0f, const glm::vec2& origin = glm::vec2(0.0f, 0.0f));
 
-    namespace immediate
+    void draw_mesh(const generic_handle<mesh>& mesh, glm::mat4 transform = glm::identity<glm::mat4>(),
+                   const generic_handle<uniform_buffer>& camera_ubo = nullptr);
+
+    inline void draw_mesh(const generic_handle<mesh>& mesh, const glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
+                          const glm::vec3 euler_rotation = glm::vec3(0.0f, 0.0f, 0.0f),
+                          const glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f),
+                          const generic_handle<uniform_buffer>& camera_ubo = nullptr)
     {
-        void begin_immediate_batch();
-        void draw_immediate_batch(const uniform_buffer& engine_ubo, const uniform_buffer& camera_ubo);
+        auto model = glm::identity<glm::mat4>();
+        model = glm::translate(model, position);
+        model = model * glm::yawPitchRoll(euler_rotation.z, euler_rotation.y, euler_rotation.x);
+        model = glm::scale(model, scale);
+        draw_mesh(mesh, model, camera_ubo);
+    }
+    inline void draw_mesh(const generic_handle<mesh>& mesh, const glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
+                          const glm::quat rotation = glm::identity<glm::quat>(),
+                          const glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f),
+                          const generic_handle<uniform_buffer>& camera_ubo = nullptr)
+    {
+        auto model = glm::identity<glm::mat4>();
+        model = glm::translate(model, position);
+        model = model * glm::toMat4(rotation);
+        model = glm::scale(model, scale);
+        draw_mesh(mesh, model, camera_ubo);
+    }
+
+    inline void draw_mesh(const generic_handle<mesh>& mesh, const render_transform& transform)
+    {
+        draw_mesh(mesh, transform.cached_world_transform);
     }
 
 }

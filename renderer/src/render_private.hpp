@@ -18,11 +18,15 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "core/core.hpp"
 
+#include "render/render.hpp"
+
 #include "glm/ext.hpp"
 #include "spdlog/spdlog.h"
 #include <format>
 
 #include "render/texture.hpp"
+
+#include <queue>
 
 namespace raoe::render
 {
@@ -37,6 +41,15 @@ namespace raoe::render
     };
 
     internal_render_assets& get_internal_render_assets();
+    struct render_queue
+    {
+        std::array<std::queue<render_task>, static_cast<int>(draw_pass::MAX)> queues;
+    };
+
+    render_queue& get_render_queue();
+
+    void enqueue_immediate_draw_commands(const generic_handle<uniform_buffer>& immediate_2d_camera);
+    void render_mesh_element(mesh_element& mesh_element);
 }
 
 RAOE_CORE_DECLARE_FORMATTER(glm::uvec2, return format_to(ctx.out(), "({}, {})", value.x, value.y);)

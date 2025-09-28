@@ -404,9 +404,21 @@ namespace raoe::render
             };
         }
 
+        generic_handle(nullptr_t)
+            : generic_handle()
+        {
+        }
+
         T* operator->() const noexcept { return get(); }
+        T& operator*() const noexcept
+        {
+            check_if(valid(), "Invalid Handle Dereference");
+            return *get();
+        }
         T* get() const { return m_vtable.get(m_handle); }
+        // ReSharper disable once CppNonExplicitConversionOperator
         operator bool() const { return m_vtable.is_valid(m_handle); }
+        [[nodiscard]] bool valid() const { return static_cast<bool>(*this); }
 
         bool operator==(const generic_handle& rhs) const { return get() == rhs.get(); }
         bool operator==(std::nullptr_t) const { return get() == nullptr; }
@@ -419,6 +431,16 @@ namespace raoe::render
     template<typename T>
     generic_handle(std::shared_ptr<T>) -> generic_handle<T>;
 
+    enum class draw_pass
+    {
+        pre_pass = 0,
+        opaque_3d = 1,
+        transparent_3d = 2,
+        opaque_2d = 3,
+        transparent_2d = 4,
+
+        MAX,
+    };
 }
 
 RAOE_CORE_DECLARE_FORMATTER(

@@ -227,7 +227,7 @@ void draw_frame(flecs::iter itr)
             .proj_camera = camera->get_view_projection_matrix(),
         });
 
-        raoe::render::render_mesh(render_info->mesh, *engine_ubo, *camera_ubo);
+        raoe::render::draw_mesh(render_info->mesh, render_transform->cached_world_transform, camera_ubo);
     }
 }
 
@@ -239,7 +239,6 @@ void tick_start(flecs::iter itr)
         .m_uniform_buffer->set_data(
             engine_uniforms {.screen_size = glm::vec2(raoe::render::get_render_context().surface_size),
                              .time = itr.world().delta_time()});
-    raoe::render::immediate::begin_immediate_batch();
 }
 
 void post_draw(const flecs::iter itr)
@@ -257,7 +256,11 @@ void post_draw(const flecs::iter itr)
         .proj_camera = camera.get_view_projection_matrix(),
     });
 
-    raoe::render::immediate::draw_immediate_batch(*engine_ubo, *camera_ubo);
+    raoe::render::draw(
+        {
+            .engine_ubo = raoe::render::generic_handle(engine_ubo),
+        },
+        camera_ubo);
 }
 raoe::engine::render_module::render_module(const flecs::world& world)
 {

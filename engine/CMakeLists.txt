@@ -20,6 +20,7 @@ raoe_add_module(
         COMPILE_DEFINITIONS
         PUBLIC
         "TOML_EXCEPTIONS=0" # disable exceptions in toml
+        "GLM_ENABLE_EXPERIMENTAL=1"
         DEPENDENCIES
         PUBLIC
         raoe::core
