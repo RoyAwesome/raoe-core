@@ -494,3 +494,12 @@ RAOE_CORE_DECLARE_FORMATTER(raoe::render::type_description,
                             return format_to(ctx.out(),
                                              "Type Description {{ type: {}, offset: {}, hint: {}, array_size: {} }}",
                                              value.type, value.offset, value.hint, value.array_size);)
+
+template<typename T>
+struct std::hash<raoe::render::generic_handle<T>>
+{
+    std::size_t operator()(const raoe::render::generic_handle<T>& handle) const noexcept
+    {
+        return std::hash<T*>()(handle.get());
+    }
+};

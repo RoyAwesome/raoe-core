@@ -18,8 +18,6 @@
 
 #include "render.hpp"
 
-#include <any>
-
 namespace raoe::render
 {
 
@@ -86,12 +84,3 @@ namespace raoe::render
     }
 
 }
-
-template<typename T>
-struct std::hash<raoe::render::generic_handle<T>>
-{
-    std::size_t operator()(const raoe::render::generic_handle<T>& handle) const noexcept
-    {
-        return std::hash<T*>()(handle.get());
-    }
-};
