@@ -1,0 +1,8 @@
+name = "Generic 2D Shader"
+description = "A generic shader for rendering 2D textures with optional color tinting and alpha blending."
+
+[shaders]
+vertex = "core/shaders/common.vert.glsl"
+fragment = "core/shaders/generic_2d.frag.glsl"
+
+[injetions]

@@ -228,6 +228,15 @@ namespace raoe::engine
         }
     };
 
+    template<>
+    struct asset_loader<toml::parse_result>
+    {
+        static toml::parse_result load_asset(const asset_load_params& params)
+        {
+            return toml::parse(params.file_stream, params.file_path.string_view());
+        }
+    };
+
     struct asset_meta
     {
         std::string m_name;
@@ -255,12 +264,12 @@ namespace raoe::engine
         asset_meta meta = {.m_name = std::string(path.stem().string_view()),
                            .m_path = std::string(path.string()),
                            .m_load_state = asset_meta::load_state::loaded};
-        if(const fs::path meta_path = path + ".meta"; fs::exists(meta_path) && fs::is_regular_file(meta_path))
+        if(const fs::path meta_path = path + u8".meta"; fs::exists(meta_path) && fs::is_regular_file(meta_path))
         {
             fs::ifstream meta_file(meta_path);
-            std::string meta_content =
-                asset_loader<std::string>::load_asset({.file_stream = meta_file, .file_path = meta_path});
-            if(const auto result = toml::parse(meta_content, meta_path.string_view()); result.succeeded())
+            if(const auto result =
+                   asset_loader<toml::parse_result>::load_asset({.file_stream = meta_file, .file_path = meta_path});
+               result.succeeded())
             {
                 meta.m_meta_table = result.table();
             }
@@ -280,6 +289,13 @@ namespace raoe::engine
         flecs::entity into_entity = world.entity().set<T>(std::forward<T>(asset)).template set<asset_meta>(meta);
         return asset_handle<T>({into_entity});
     }
+
+    template<>
+    struct asset_loader<render::shader::shader>
+    {
+        static render::shader::shader load_asset(const asset_load_params& params);
+    };
+
 }
 
 template<>
@@ -296,3 +312,10 @@ struct std::hash<raoe::engine::asset_handle<T>>
         return std::hash<T*>()(asset.get());
     }
 };
+
+namespace raoe::render
+{
+    // Deduction guide to convert asset_handle to generic_handle
+    template<typename T, engine::asset_handle_type type>
+    generic_handle(engine::asset_handle<T, type>) -> generic_handle<T>;
+}

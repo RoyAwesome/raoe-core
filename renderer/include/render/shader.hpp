@@ -249,8 +249,27 @@ namespace raoe::render::shader
         shader(const shader&) = default;
         shader& operator=(const shader&) = default;
 
-        shader(shader&&) = default;
-        shader& operator=(shader&&) = default;
+        shader(shader&& other) noexcept
+            : m_native_id(std::exchange(other.m_native_id, 0))
+            , m_uniforms(std::move(std::exchange(other.m_uniforms, {})))
+            , m_uniform_names(std::move(std::exchange(other.m_uniform_names, {})))
+            , m_uniform_blocks(std::move(std::exchange(other.m_uniform_blocks, {})))
+            , m_uniform_block_names(std::move(std::exchange(other.m_uniform_block_names, {})))
+            , m_inputs(std::move(std::exchange(other.m_inputs, {})))
+            , m_debug_name(std::move(std::exchange(other.m_debug_name, {})))
+        {
+        }
+        shader& operator=(shader&& other) noexcept
+        {
+            m_native_id = std::exchange(other.m_native_id, 0);
+            m_uniforms = std::move(std::exchange(other.m_uniforms, {}));
+            m_uniform_names = std::move(std::exchange(other.m_uniform_names, {}));
+            m_uniform_blocks = std::move(std::exchange(other.m_uniform_blocks, {}));
+            m_uniform_block_names = std::move(std::exchange(other.m_uniform_block_names, {}));
+            m_inputs = std::move(std::exchange(other.m_inputs, {}));
+            m_debug_name = std::move(std::exchange(other.m_debug_name, {}));
+            return *this;
+        }
 
         template<shader_lang TLang>
         friend struct basic_builder;
@@ -373,20 +392,20 @@ namespace raoe::render::shader
         }
 
         template<std::invocable<const std::string&> TFunc>
-        [[nodiscard]] basic_builder& with_file_loader(TFunc&& loader)
+        basic_builder& with_file_loader(TFunc&& loader)
         {
             m_load_file_callback = std::function(loader);
             return *this;
         }
 
-        [[nodiscard]] basic_builder& with_injections(const std::unordered_map<std::string, std::string>& injections)
+        basic_builder& with_injections(const std::unordered_map<std::string, std::string>& injections)
         {
             m_injections = injections;
             return *this;
         }
 
-        [[nodiscard]] basic_builder& add_module(source<TLang, shader_type::vertex> vertex_shader,
-                                                source<TLang, shader_type::fragment> fragment_shader)
+        basic_builder& add_module(source<TLang, shader_type::vertex> vertex_shader,
+                                  source<TLang, shader_type::fragment> fragment_shader)
         {
             // check if we can build a fragment/vertex shader
             check_can_attach_module(build_flags::vertex);
@@ -399,7 +418,7 @@ namespace raoe::render::shader
             return *this;
         }
 
-        [[nodiscard]] basic_builder& add_module(source<TLang, shader_type::geometry> geometry_shader)
+        basic_builder& add_module(source<TLang, shader_type::geometry> geometry_shader)
         {
             // check if we can build a geometry shader
             check_can_attach_module(build_flags::geometry);
@@ -409,9 +428,8 @@ namespace raoe::render::shader
             return *this;
         }
 
-        [[nodiscard]] basic_builder& add_module(
-            source<TLang, shader_type::tesselation_control> tesselation_control_shader,
-            source<TLang, shader_type::tesselation_evaluation> tesselation_evaluation_shader)
+        basic_builder& add_module(source<TLang, shader_type::tesselation_control> tesselation_control_shader,
+                                  source<TLang, shader_type::tesselation_evaluation> tesselation_evaluation_shader)
         {
             // check if we can build a tesselation shader
             check_can_attach_module(build_flags::tesselation_control);
@@ -425,8 +443,8 @@ namespace raoe::render::shader
             return *this;
         }
 
-        [[nodiscard]] basic_builder& add_module(source<TLang, shader_type::mesh> mesh_shader,
-                                                source<TLang, shader_type::fragment> fragment_shader)
+        basic_builder& add_module(source<TLang, shader_type::mesh> mesh_shader,
+                                  source<TLang, shader_type::fragment> fragment_shader)
         {
             // check if we can build a mesh shader
             check_can_attach_module(build_flags::mesh);
@@ -440,7 +458,7 @@ namespace raoe::render::shader
         }
 
         template<shader_type TType>
-        [[nodiscard]] basic_builder& add_module(std::istream& stream)
+        basic_builder& add_module(std::istream& stream)
         {
             // check if we can build this shader type
             check_can_attach_module(from_type(TType));
@@ -458,7 +476,7 @@ namespace raoe::render::shader
             return *this;
         }
         template<shader_type TType>
-        [[nodiscard]] basic_builder& load_module(const std::string& file_path)
+        basic_builder& load_module(const std::string& file_path)
         {
             // check if we can build this shader type
             check_can_attach_module(from_type(TType));
@@ -479,7 +497,7 @@ namespace raoe::render::shader
         }
 
         template<shader_type TType>
-        [[nodiscard]] basic_builder& add_module_source(std::string_view source_text)
+        basic_builder& add_module_source(std::string_view source_text)
         {
             // check if we can build this shader type
             check_can_attach_module(from_type(TType));
@@ -497,7 +515,7 @@ namespace raoe::render::shader
             return *this;
         }
 
-        [[nodiscard]] basic_builder& add_module(source<TLang, shader_type::compute> compute_shader)
+        basic_builder& add_module(source<TLang, shader_type::compute> compute_shader)
         {
             // check if we can build a compute shader
             check_can_attach_module(build_flags::compute);
@@ -507,7 +525,7 @@ namespace raoe::render::shader
             return *this;
         }
 
-        [[nodiscard]] std::shared_ptr<shader> build_sync() const
+        [[nodiscard]] shader build_sync() const
         {
             check_can_build();
 
@@ -528,7 +546,7 @@ namespace raoe::render::shader
                 static_assert(false, "spirv not implemented yet");
             }
 
-            return shader::make_shared(_internal::create_program(shader_ids), m_debug_name);
+            return shader(_internal::create_program(shader_ids), m_debug_name);
         }
 
       private:

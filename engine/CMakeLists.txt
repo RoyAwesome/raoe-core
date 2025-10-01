@@ -17,6 +17,7 @@ raoe_add_module(
         "src/sys/window.cpp"
         "src/sys/pack.cpp"
         "src/assets/asset_loader_texture.cpp"
+        "src/assets/asset_loader_material.cpp"
         COMPILE_DEFINITIONS
         PUBLIC
         "TOML_EXCEPTIONS=0" # disable exceptions in toml

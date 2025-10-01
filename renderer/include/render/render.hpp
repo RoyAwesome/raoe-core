@@ -96,9 +96,9 @@ namespace raoe::render
 
     struct render_context
     {
-        std::shared_ptr<shader::shader> error_shader;
-        std::shared_ptr<shader::shader> generic_2d_shader;
-        std::shared_ptr<texture_2d> error_texture;
+        generic_handle<shader::shader> error_shader;
+        generic_handle<shader::shader> generic_2d_shader;
+        generic_handle<texture_2d> error_texture;
         glm::ivec2 surface_size;
         shader::glsl::file_load_callback_t load_callback;
     };

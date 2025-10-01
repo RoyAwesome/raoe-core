@@ -31,6 +31,7 @@ namespace raoe::fs
     class path
     {
       public:
+        // ReSharper disable CppNonExplicitConvertingConstructor
         path() = default;
         explicit path(std::u8string path)
             : m_underlying(std::move(path))
@@ -42,9 +43,19 @@ namespace raoe::fs
         }
         template<typename TChar>
         explicit path(const std::basic_string<TChar>& path)
+
             : m_underlying(std::u8string(path.begin(), path.end()))
         {
         }
+        path(const char* path)
+            : m_underlying(std::u8string(reinterpret_cast<const char8_t*>(path)))
+        {
+        }
+        path(const char8_t* path)
+            : m_underlying(path)
+        {
+        }
+        // ReSharper restore CppNonExplicitConvertingConstructor
 
         explicit operator std::u8string_view() const { return std::u8string_view(m_underlying); }
 
@@ -95,6 +106,22 @@ namespace raoe::fs
         path& operator+=(const std::filesystem::path& other)
         {
             m_underlying += other.u8string();
+            return *this;
+        }
+
+        path operator+(const char* other) const
+        {
+            return path(m_underlying + std::u8string(reinterpret_cast<const char8_t*>(other)));
+        }
+        path& operator+=(const char* other)
+        {
+            m_underlying += std::u8string(reinterpret_cast<const char8_t*>(other));
+            return *this;
+        }
+        path operator+(const char8_t* other) const { return path(m_underlying + other); }
+        path& operator+=(const char8_t* other)
+        {
+            m_underlying += other;
             return *this;
         }
 

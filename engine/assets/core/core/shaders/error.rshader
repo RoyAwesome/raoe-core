@@ -1,0 +1,6 @@
+name = "Error Shader"
+description = "The shader used when something goes wrong"
+
+[shaders]
+vertex = "core/shaders/common.vert.glsl"
+fragment = "core/shaders/error.frag.glsl"

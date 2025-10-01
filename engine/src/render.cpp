@@ -18,6 +18,7 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 #include "render/render.hpp"
 
+#include "engine/asset.hpp"
 #include "engine/sys/pack.hpp"
 #include "engine/sys/window.hpp"
 #include "render/immediate.hpp"
@@ -96,22 +97,15 @@ void init_render(const flecs::iter it)
     spdlog::info("Initializing renderer");
 
     auto _ = raoe::engine::scoped_world_defer_suspend(it.world());
-    const auto error_texture = raoe::render::generate_checkerboard_texture({64, 64}, raoe::render::colors::black,
-                                                                           raoe::render::colors::magic_pink, 8);
+    flecs::world world = it.world();
+    auto error_texture = raoe::render::generate_checkerboard_texture({64, 64}, raoe::render::colors::black,
+                                                                     raoe::render::colors::magic_pink, 8);
 
     spdlog::info("Building Error Shader");
-    const auto error_shader = glsl_builder("Error Shader")
-                                  .with_file_loader(raoe::engine::sys::load_string_from_pack)
-                                  .load_module<shader_type::vertex>("core/shaders/common.vert.glsl")
-                                  .load_module<shader_type::fragment>("core/shaders/error.frag.glsl")
-                                  .build_sync();
+    const auto error_shader = raoe::engine::load_asset<shader>(world, u8"core/shaders/error.rshader");
 
     spdlog::info("Building Generic 2D Shader");
-    const auto generic_2d_shader = glsl_builder("Generic 2D Shader")
-                                       .with_file_loader(raoe::engine::sys::load_string_from_pack)
-                                       .load_module<shader_type::vertex>("core/shaders/common.vert.glsl")
-                                       .load_module<shader_type::fragment>("core/shaders/generic_2d.frag.glsl")
-                                       .build_sync();
+    const auto generic_2d_shader = raoe::engine::load_asset<shader>(world, u8"core/shaders/generic_2d.rshader");
 
     const glm::vec2 window_size =
         it.world().entity(raoe::engine::entities::engine::main_window).get<raoe::engine::sys::window>().size();
