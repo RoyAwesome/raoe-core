@@ -135,3 +135,27 @@ TEST_CASE("URI with scheme and path, but the path is a uuid", "[URI]")
     REQUIRE(test6.query().empty());
     REQUIRE(test6.fragment().empty());
 }
+
+TEST_CASE("URI just path", "[URI]")
+{
+    raoe::uri test6("/game/textures/clean-sprite-sheet.png");
+    REQUIRE(test6.scheme().empty());
+    REQUIRE(test6.userinfo().empty());
+    REQUIRE(test6.host().empty());
+    REQUIRE(test6.port() == 0);
+    REQUIRE(test6.path() == "/game/textures/clean-sprite-sheet.png");
+    REQUIRE(test6.query().empty());
+    REQUIRE(test6.fragment().empty());
+}
+
+TEST_CASE("URI just host and port", "[URI]")
+{
+    raoe::uri test6("//hostname:8080");
+    REQUIRE(test6.scheme().empty());
+    REQUIRE(test6.userinfo().empty());
+    REQUIRE(test6.host() == "hostname");
+    REQUIRE(test6.port() == 8080);
+    REQUIRE(test6.path().empty());
+    REQUIRE(test6.query().empty());
+    REQUIRE(test6.fragment().empty());
+}
