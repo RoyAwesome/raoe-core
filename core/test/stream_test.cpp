@@ -42,7 +42,7 @@ TEST_CASE("Test String View Case", "[STREAM]")
     std::vector<std::byte> container;
     raoe::stream::read_stream_into(std::back_inserter(container), test_words);
 
-    REQUIRE(container.size() == test_words.size());
+    REQUIRE(container.size() == test_words.size() + 1); // null terminator
     for(int i = 0; i < container.size(); i++)
     {
         REQUIRE(container[i] == std::byte(test_words[i]));

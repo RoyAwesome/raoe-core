@@ -5,4 +5,4 @@ description = "A generic shader for rendering 2D textures with optional color ti
 vertex = "core/shaders/common.vert.glsl"
 fragment = "core/shaders/generic_2d.frag.glsl"
 
-[injetions]
+[injections]
