@@ -112,3 +112,26 @@ TEST_CASE("URI with scheme and path and 3 /", "[URI]")
     REQUIRE(test6.query().empty());
     REQUIRE(test6.fragment().empty());
 }
+
+TEST_CASE("URI with scheme and path (Game Asset Example)", "[URI]")
+{
+    raoe::uri test6("texture:/game/textures/clean-sprite-sheet.png");
+    REQUIRE(test6.scheme() == "texture");
+    REQUIRE(test6.userinfo().empty());
+    REQUIRE(test6.host().empty());
+    REQUIRE(test6.port() == 0);
+    REQUIRE(test6.path() == "/game/textures/clean-sprite-sheet.png");
+    REQUIRE(test6.query().empty());
+    REQUIRE(test6.fragment().empty());
+}
+TEST_CASE("URI with scheme and path, but the path is a uuid", "[URI]")
+{
+    raoe::uri test6("texture:c940b5f2-0467-4005-8558-468f238b85db");
+    REQUIRE(test6.scheme() == "texture");
+    REQUIRE(test6.userinfo().empty());
+    REQUIRE(test6.host().empty());
+    REQUIRE(test6.port() == 0);
+    REQUIRE(test6.path() == "c940b5f2-0467-4005-8558-468f238b85db");
+    REQUIRE(test6.query().empty());
+    REQUIRE(test6.fragment().empty());
+}
