@@ -47,6 +47,11 @@ namespace raoe::fs
             : m_underlying(std::u8string(path.begin(), path.end()))
         {
         }
+        template<typename TChar>
+        explicit path(std::basic_string_view<TChar> path)
+            : m_underlying(std::u8string(path.begin(), path.end()))
+        {
+        }
         path(const char* path)
             : m_underlying(std::u8string(reinterpret_cast<const char8_t*>(path)))
         {

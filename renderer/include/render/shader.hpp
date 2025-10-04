@@ -549,25 +549,19 @@ namespace raoe::render::shader
             return shader(_internal::create_program(shader_ids), m_debug_name);
         }
 
-      private:
-        void check_can_build() const
+        bool can_build() const
         {
-            if(m_build_flags == build_flags::compute)
-            {
-                return;
-            }
-
             // If we have a fragment shader, we must have a vertex shader or a mesh shader
             if(has_any_flags(m_build_flags, build_flags::fragment) &&
                !has_any_flags(m_build_flags, build_flags::vertex | build_flags::mesh))
             {
-                panic("Cannot build a fragment shader without a vertex or mesh shader");
+                return false;
             }
             // if we have a vertex or mesh shader, we must have a fragment shader
             if(has_any_flags(m_build_flags, build_flags::vertex | build_flags::mesh) &&
                !has_any_flags(m_build_flags, build_flags::fragment))
             {
-                panic("Cannot build a vertex or mesh shader without a fragment shader");
+                return false;
             }
 
             // If we have any tesselation shader, we must both types of tesselation shaders and a vertex shader
@@ -576,54 +570,114 @@ namespace raoe::render::shader
                  has_any_flags(m_build_flags, build_flags::tesselation_evaluation) &&
                  has_any_flags(m_build_flags, build_flags::vertex)))
             {
-                panic("Cannot build a tesselation shader without both tesselation shaders and a vertex shader");
+                return false;
             }
 
             // If we have a geometry shader, we must have a vertex shader
             if(has_any_flags(m_build_flags, build_flags::geometry) &&
                !has_any_flags(m_build_flags, build_flags::vertex))
             {
-                panic("Cannot build a geometry shader without a vertex shader");
+                return false;
             }
+            return true;
         }
-
-        void check_can_attach_module(const build_flags attempted_operation) const
+        bool can_attach_module(const build_flags attempted_operation) const
         {
-            // If we are nothing, we accept any attempt
-            if(m_build_flags == build_flags::none)
-            {
-                return;
-            }
-
             if(has_any_flags(m_build_flags, attempted_operation))
             {
-                panic("Cannot attach that shader, it's already attached");
+                return false;
             }
 
             // Make sure we don't have compute attaching to any drawing shader
             if(has_any_flags(m_build_flags, build_flags::any_draw) &&
                has_any_flags(attempted_operation, build_flags::compute))
             {
-                panic("Cannot attach a compute shader to a shader that already has a drawing shader");
+                return false;
             }
-            // and make sure we dont attach a drawing shader to a compute shader
+            // and make sure we don't attach a drawing shader to a compute shader
             if(has_any_flags(m_build_flags, build_flags::compute) &&
                has_any_flags(attempted_operation, build_flags::any_draw))
             {
-                panic("Cannot attach a compute shader to a drawing shader");
+                return false;
             }
 
             // Ensure that we don't have a mesh shader attached to a classic pipeline
             if(has_any_flags(m_build_flags, build_flags::classic_pipeline) &&
                has_any_flags(attempted_operation, build_flags::mesh))
             {
-                panic("Cannot attach a mesh shader to a classic pipeline");
+                return false;
             }
             // and ensure that we don't have a classic pipeline shader attached to a mesh shader
             if(has_any_flags(m_build_flags, build_flags::mesh) &&
                has_any_flags(attempted_operation, build_flags::classic_pipeline))
             {
-                panic("Cannot attach a classic pipeline shader to a mesh shader");
+                return false;
+            }
+            return true;
+        }
+
+        template<shader_type ShaderType>
+        bool can_attach_module() const
+        {
+            return can_attach_module(from_type(ShaderType));
+        }
+
+        std::string why_cant_attach_shader(const build_flags attempted_operation) const
+        {
+            if(has_any_flags(m_build_flags, attempted_operation))
+            {
+                return std::format("Shader already has a module of type {}", attempted_operation);
+            }
+
+            // Make sure we don't have compute attaching to any drawing shader
+            if(has_any_flags(m_build_flags, build_flags::any_draw) &&
+               has_any_flags(attempted_operation, build_flags::compute))
+            {
+                return "Cannot attach a compute shader to a drawing shader";
+            }
+            // and make sure we don't attach a drawing shader to a compute shader
+            if(has_any_flags(m_build_flags, build_flags::compute) &&
+               has_any_flags(attempted_operation, build_flags::any_draw))
+            {
+                return "Cannot attach a drawing shader to a compute shader";
+            }
+
+            // Ensure that we don't have a mesh shader attached to a classic pipeline
+            if(has_any_flags(m_build_flags, build_flags::classic_pipeline) &&
+               has_any_flags(attempted_operation, build_flags::mesh))
+            {
+                return "Cannot attach a mesh shader to a classic pipeline shader";
+            }
+            // and ensure that we don't have a classic pipeline shader attached to a mesh shader
+            if(has_any_flags(m_build_flags, build_flags::mesh) &&
+               has_any_flags(attempted_operation, build_flags::classic_pipeline))
+            {
+                return "Cannot attach a classic pipeline shader to a mesh shader";
+            }
+            return "Unknown reason";
+        }
+
+        template<shader_type ShaderType>
+        std::string why_cant_attach_shader() const
+        {
+            return why_cant_attach_shader(from_type(ShaderType));
+        }
+
+      private:
+        void check_can_build() const
+        {
+            if(!can_build())
+            {
+                panic("Unable to build shader, flags are: {}", m_build_flags);
+            }
+        }
+
+        void check_can_attach_module(const build_flags attempted_operation) const
+        {
+            if(!can_attach_module(attempted_operation))
+            {
+                panic("Attempting to attach {} to shader, but cannot.  Current flags are: {}", attempted_operation,
+                      m_build_flags);
             }
         }
 
@@ -715,10 +769,10 @@ namespace raoe::render::shader
             data = value;
         }
 
-        void set_uniform(const std::string& name, const generic_handle<texture>& value)
+        void set_uniform(const std::string& name, generic_handle<texture> value)
         {
             auto& [location, _, data] = find_or_create_uniform_for(name);
-            data = value;
+            data = std::move(value);
         }
 
         void set_uniform(const uint32 location, const shader_uniform_variant& value)
@@ -790,4 +844,37 @@ RAOE_CORE_DECLARE_FORMATTER(
         case raoe::render::shader::shader_lang::glsl: return format_to(ctx.out(), "lang::glsl");
         case raoe::render::shader::shader_lang::spirv: return format_to(ctx.out(), "lang::spirv");
         default: return format_to(ctx.out(), "lang::unknown");
+    })
+
+RAOE_CORE_DECLARE_FORMATTER(
+    raoe::render::shader::build_flags,
+    if(std::to_underlying(value) == 0) { return format_to(ctx.out(), "build_flags::none"); } bool first = true;
+    for(const auto flag : {raoe::render::shader::build_flags::vertex, raoe::render::shader::build_flags::fragment,
+                           raoe::render::shader::build_flags::geometry,
+                           raoe::render::shader::build_flags::tesselation_control,
+                           raoe::render::shader::build_flags::tesselation_evaluation,
+                           raoe::render::shader::build_flags::mesh, raoe::render::shader::build_flags::compute}) {
+        if(raoe::has_any_flags(value, flag))
+        {
+            if(!first)
+            {
+                format_to(ctx.out(), "|");
+            }
+            first = false;
+            switch(flag)
+            {
+                case raoe::render::shader::build_flags::vertex: format_to(ctx.out(), "build_flags::vertex"); break;
+                case raoe::render::shader::build_flags::fragment: format_to(ctx.out(), "build_flags::fragment"); break;
+                case raoe::render::shader::build_flags::geometry: format_to(ctx.out(), "build_flags::geometry"); break;
+                case raoe::render::shader::build_flags::tesselation_control:
+                    format_to(ctx.out(), "build_flags::tesselation_control");
+                    break;
+                case raoe::render::shader::build_flags::tesselation_evaluation:
+                    format_to(ctx.out(), "build_flags::tesselation_evaluation");
+                    break;
+                case raoe::render::shader::build_flags::mesh: format_to(ctx.out(), "build_flags::mesh"); break;
+                case raoe::render::shader::build_flags::compute: format_to(ctx.out(), "build_flags::compute"); break;
+                default: format_to(ctx.out(), "build_flags::unknown"); break;
+            }
+        }
     })

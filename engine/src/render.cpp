@@ -103,15 +103,24 @@ void init_render(const flecs::iter it)
 
     spdlog::info("Building Error Shader");
     const auto error_shader = raoe::engine::load_asset<shader>(world, u8"core/shaders/error.rshader");
+    if(!error_shader.has_value())
+    {
+        raoe::panic("failed to load error shader {}", error_shader.error());
+    }
 
     spdlog::info("Building Generic 2D Shader");
     const auto generic_2d_shader = raoe::engine::load_asset<shader>(world, u8"core/shaders/generic_2d.rshader");
 
+    if(!generic_2d_shader.has_value())
+    {
+        raoe::panic("failed to load generic 2d shader {}", generic_2d_shader.error());
+    }
+
     const glm::vec2 window_size =
         it.world().entity(raoe::engine::entities::engine::main_window).get<raoe::engine::sys::window>().size();
 
-    const raoe::render::render_context ctx {.error_shader = error_shader,
-                                            .generic_2d_shader = generic_2d_shader,
+    const raoe::render::render_context ctx {.error_shader = *error_shader,
+                                            .generic_2d_shader = *generic_2d_shader,
                                             .error_texture = error_texture,
                                             .surface_size = window_size,
                                             .load_callback =

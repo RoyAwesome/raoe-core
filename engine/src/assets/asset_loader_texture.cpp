@@ -76,7 +76,7 @@ raoe::render::texture_filter string_to_texture_filter(std::string_view str)
     return raoe::render::texture_filter::nearest;
 }
 
-raoe::render::texture_2d raoe::engine::asset_loader<raoe::render::typed_texture<
+raoe::engine::asset_load_result<raoe::render::texture_2d> raoe::engine::asset_loader<raoe::render::typed_texture<
     raoe::render::texture_type::texture_2d>>::load_asset(const asset_load_params& file_params)
 {
     const stbi_io_callbacks callbacks = {
@@ -88,7 +88,12 @@ raoe::render::texture_2d raoe::engine::asset_loader<raoe::render::typed_texture<
     unsigned char* data =
         stbi_load_from_callbacks(&callbacks, &file_params.file_stream, &width, &height, &channels, STBI_default);
 
-    check_if(data != nullptr, "Failed to load texture from file: {}", file_params.file_path);
+    if(data == nullptr)
+    {
+        return std::unexpected(
+            asset_load_error(file_params.file_path.string(), std::string(stbi_failure_reason()), 0, 0));
+    }
+
     const std::span texture_data(reinterpret_cast<std::byte*>(data), static_cast<size_t>(width * height * channels));
 
     auto fmt = render::texture_format::unknown;

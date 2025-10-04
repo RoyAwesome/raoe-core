@@ -19,6 +19,8 @@
 #include "engine/engine.hpp"
 #include "fs/filesystem.hpp"
 
+#include <expected>
+#include <queue>
 #include <toml++/toml.hpp>
 
 namespace raoe::engine
@@ -34,11 +36,60 @@ namespace raoe::engine
         std::istream& file_stream;
         const raoe::fs::path& file_path;
         const toml::table* metadata = nullptr;
+        flecs::world& world;
+    };
+
+    struct asset_load_error
+    {
+        static asset_load_error append(asset_load_error other_error, std::string file, std::string message,
+                                       const uint32 line = 0, const uint32 column = 0)
+        {
+            asset_load_error result(std::move(file), std::move(message), line, column);
+            while(!other_error.error_traces.empty())
+            {
+                result.error_traces.push(other_error.error_traces.front());
+                other_error.error_traces.pop();
+            }
+            return result;
+        }
+
+        asset_load_error() = default;
+
+        explicit asset_load_error(std::string file, std::string message, const uint32 line = 0, const uint32 column = 0)
+        {
+            add_trace(std::move(file), std::move(message), line, column);
+        }
+        // The path of the asset that failed to load (might be a dependant asset)
+        struct error_trace
+        {
+            uint32 line = 0;
+            uint32 column = 0;
+            std::string file;
+            // A message describing the error
+            std::string message;
+        };
+
+        // Stack of errors.  Most recent error is on top (should be the asset you've directly loaded).
+        std::queue<error_trace> error_traces;
+        void add_trace(std::string file, std::string message, const uint32 line = 0, const uint32 column = 0)
+        {
+            error_traces.push(error_trace {
+                .line = line,
+                .column = column,
+                .file = std::move(file),
+                .message = std::move(message),
+            });
+        }
     };
 
     template<typename T>
+    using asset_load_result = std::expected<T, asset_load_error>;
+
+    template<typename T>
     concept is_asset_type = requires {
-        { asset_loader<T>::load_asset(std::declval<const asset_load_params&>()) } -> std::convertible_to<T>;
+        {
+            asset_loader<T>::load_asset(std::declval<const asset_load_params&>())
+        } -> std::convertible_to<std::expected<T, asset_load_error>>;
     };
 
     namespace _internal
@@ -168,6 +219,11 @@ namespace raoe::engine
             return ref != nullptr && ref->hard_ref_count > 0 && asset != nullptr && asset->entity().is_alive();
         }
 
+        [[nodiscard]] bool valid() const noexcept
+        {
+            return ref != nullptr && ref->hard_ref_count > 0 && asset != nullptr && asset->entity().is_alive();
+        }
+
         [[nodiscard]] T* get() const noexcept
         {
             if(ref && ref->hard_ref_count > 0 && asset)
@@ -190,7 +246,7 @@ namespace raoe::engine
         asset_handle<T, asset_handle_type::strong> to_strong() const
             requires(THandleType == asset_handle_type::weak)
         {
-            if(ref && ref->hard_ref_count > 0 && asset && asset->is_alive())
+            if(ref && ref->hard_ref_count > 0 && asset && asset->entity().is_alive())
             {
                 return asset_handle<T, asset_handle_type::strong>(*this);
             }
@@ -229,11 +285,18 @@ namespace raoe::engine
     };
 
     template<>
-    struct asset_loader<toml::parse_result>
+    struct asset_loader<toml::table>
     {
-        static toml::parse_result load_asset(const asset_load_params& params)
+        static asset_load_result<toml::table> load_asset(const asset_load_params& params)
         {
-            return toml::parse(params.file_stream, params.file_path.string_view());
+            auto result = toml::parse(params.file_stream, params.file_path.string_view());
+            if(result)
+            {
+                return std::expected<toml::table, asset_load_error> {std::move(result.table())};
+            }
+            return std::unexpected(
+                asset_load_error(params.file_path.string(), std::string(result.error().description()),
+                                 result.error().source().begin.line, result.error().source().begin.column));
         }
     };
 
@@ -253,13 +316,27 @@ namespace raoe::engine
     };
 
     template<is_asset_type T>
-    asset_handle<T> load_asset(flecs::world& world, fs::path path)
+    std::expected<asset_handle<T>, asset_load_error> load_asset(flecs::world& world, fs::path path)
     {
-        check_if(fs::exists(path), "Asset path does not exist: {}", path);
-        check_if(fs::is_regular_file(path), "Asset path is not a file: {}", path);
-        fs::ifstream file(path);
+        world.component<weak_asset_handle<T>>();
 
-        world.component<T>();
+        flecs::entity into_entity = world.entity(path.data());
+        // Do we already have this entity? If so, return the existing handle
+        if(into_entity.has<weak_asset_handle<T>>())
+        {
+            return into_entity.get<weak_asset_handle<T>>().to_strong();
+        }
+
+        if(!fs::exists(path))
+        {
+            return std::unexpected(asset_load_error(path.string(), "Asset path does not exist"));
+        }
+        if(!fs::is_regular_file(path))
+        {
+            return std::unexpected(asset_load_error(path.string(), "Asset path is not a file"));
+        }
+
+        fs::ifstream file(path);
 
         asset_meta meta = {.m_name = std::string(path.stem().string_view()),
                            .m_path = std::string(path.string()),
@@ -267,21 +344,36 @@ namespace raoe::engine
         if(const fs::path meta_path = path + u8".meta"; fs::exists(meta_path) && fs::is_regular_file(meta_path))
         {
             fs::ifstream meta_file(meta_path);
-            if(const auto result =
-                   asset_loader<toml::parse_result>::load_asset({.file_stream = meta_file, .file_path = meta_path});
-               result.succeeded())
+            if(const auto result = asset_loader<toml::table>::load_asset({
+                   .file_stream = meta_file,
+                   .file_path = meta_path,
+                   .metadata = nullptr,
+                   .world = world,
+               });
+               result.has_value())
             {
-                meta.m_meta_table = result.table();
+                meta.m_meta_table = result.value();
             }
         }
-
-        flecs::entity into_entity = world.entity(path.data())
-                                        .set<T>(asset_loader<T>::load_asset(
-                                            {.file_stream = file, .file_path = path, .metadata = &meta.m_meta_table}))
-                                        .template set<asset_meta>(std::move(meta));
-        return asset_handle<T>({into_entity});
+        if(auto load_result = asset_loader<T>::load_asset({
+               .file_stream = file,
+               .file_path = path,
+               .metadata = &meta.m_meta_table,
+               .world = world,
+           });
+           load_result.has_value())
+        {
+            world.component<T>();
+            into_entity.set<T>(std::move(load_result.value())).template set<asset_meta>(std::move(meta));
+            auto handle = asset_handle<T>({into_entity});
+            into_entity.set<weak_asset_handle<T>>({handle});
+            return handle;
+        }
+        else
+        {
+            return std::unexpected(load_result.error());
+        }
     }
-
     template<is_asset_type T>
     asset_handle<T> emplace_asset(flecs::world& world, T&& asset, asset_meta meta = {})
     {
@@ -293,7 +385,13 @@ namespace raoe::engine
     template<>
     struct asset_loader<render::shader::shader>
     {
-        static render::shader::shader load_asset(const asset_load_params& params);
+        static asset_load_result<render::shader::shader> load_asset(const asset_load_params& params);
+    };
+
+    template<>
+    struct asset_loader<render::shader::material>
+    {
+        static asset_load_result<render::shader::material> load_asset(const asset_load_params& params);
     };
 
 }
@@ -301,7 +399,7 @@ namespace raoe::engine
 template<>
 struct raoe::engine::asset_loader<raoe::render::texture_2d>
 {
-    static render::texture_2d load_asset(const asset_load_params&);
+    static asset_load_result<render::texture_2d> load_asset(const asset_load_params&);
 };
 
 template<typename T>
@@ -319,3 +417,25 @@ namespace raoe::render
     template<typename T, engine::asset_handle_type type>
     generic_handle(engine::asset_handle<T, type>) -> generic_handle<T>;
 }
+
+RAOE_CORE_DECLARE_FORMATTER(
+    raoe::engine::asset_load_error, switch(value.error_traces.size()) {
+        case 0: return std::format_to(ctx.out(), "No error information available");
+        case 1: {
+            const auto& [line, column, file, message] = value.error_traces.front();
+            return std::format_to(ctx.out(), "{} ({}:{}): {}", file, line, column, message);
+        }
+        default: {
+            auto temp_stack = value.error_traces;
+            int i = 0;
+            while(!temp_stack.empty())
+            {
+                const auto& [line, column, file, message] = temp_stack.front();
+                std::format_to(ctx.out(), "{:3}:{} {} ({}:{}): {}\n", i, i == 0 ? "" : "\t", file, line, column,
+                               message);
+                temp_stack.pop();
+                i++;
+            }
+            return ctx.out();
+        }
+    })
