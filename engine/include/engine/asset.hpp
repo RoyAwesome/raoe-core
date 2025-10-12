@@ -25,6 +25,9 @@
 
 namespace raoe::engine
 {
+    struct asset_namespace_tag
+    {
+    };
     template<typename T>
     struct asset_loader
     {
@@ -316,15 +319,16 @@ namespace raoe::engine
     };
 
     template<is_asset_type T>
-    std::expected<asset_handle<T>, asset_load_error> load_asset(flecs::world& world, fs::path path)
+    std::expected<asset_handle<T>, asset_load_error> load_asset(flecs::world& world, const fs::path& path)
     {
         world.component<weak_asset_handle<T>>();
 
-        flecs::entity into_entity = world.entity(path.data());
+        flecs::entity into_entity = world.scope<asset_namespace_tag>().entity(path.data());
         // Do we already have this entity? If so, return the existing handle
-        if(into_entity.has<weak_asset_handle<T>>())
+        if(const auto* weak_handle = into_entity.try_get<weak_asset_handle<T>>())
         {
-            return into_entity.get<weak_asset_handle<T>>().to_strong();
+            spdlog::info("Asset {:p} already loaded, returning existing handle", into_entity);
+            return weak_handle->to_strong();
         }
 
         if(!fs::exists(path))
@@ -355,6 +359,8 @@ namespace raoe::engine
                 meta.m_meta_table = result.value();
             }
         }
+
+        spdlog::info("Loading asset {} into entity {:p}", path.string(), into_entity);
         if(auto load_result = asset_loader<T>::load_asset({
                .file_stream = file,
                .file_path = path,

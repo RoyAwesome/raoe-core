@@ -32,32 +32,39 @@ namespace raoe::fs
     {
       public:
         // ReSharper disable CppNonExplicitConvertingConstructor
-        path() = default;
-        explicit path(std::u8string path)
-            : m_underlying(std::move(path))
+        path()
+            : m_underlying(u8"/")
         {
         }
-        explicit path(const std::filesystem::path& path)
-            : m_underlying(path.u8string())
+        explicit path(std::u8string in_path)
+            : m_underlying(std::move(in_path))
+        {
+            // if we don't have an absolute_path, add a leading /
+            if(!m_underlying.starts_with('/'))
+            {
+                m_underlying = u8"/" + m_underlying;
+            }
+        }
+        explicit path(const std::filesystem::path& in_path)
+            : path(in_path.u8string())
         {
         }
         template<typename TChar>
-        explicit path(const std::basic_string<TChar>& path)
-
-            : m_underlying(std::u8string(path.begin(), path.end()))
+        explicit path(const std::basic_string<TChar>& in_path)
+            : path(std::u8string(in_path.begin(), in_path.end()))
         {
         }
         template<typename TChar>
-        explicit path(std::basic_string_view<TChar> path)
-            : m_underlying(std::u8string(path.begin(), path.end()))
+        explicit path(std::basic_string_view<TChar> in_path)
+            : path(std::u8string(in_path.begin(), in_path.end()))
         {
         }
-        path(const char* path)
-            : m_underlying(std::u8string(reinterpret_cast<const char8_t*>(path)))
+        path(const char* in_path)
+            : path(std::u8string(reinterpret_cast<const char8_t*>(in_path)))
         {
         }
-        path(const char8_t* path)
-            : m_underlying(path)
+        path(const char8_t* in_path)
+            : path(std::u8string(in_path))
         {
         }
         // ReSharper restore CppNonExplicitConvertingConstructor

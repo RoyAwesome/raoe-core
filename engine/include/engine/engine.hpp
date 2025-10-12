@@ -198,6 +198,38 @@ RAOE_CORE_DECLARE_FORMATTER(glm::mat2, return format_to(ctx.out(), "\n[{}, {}]\n
 RAOE_CORE_DECLARE_FORMATTER(glm::quat,
                             return format_to(ctx.out(), "({}, {}, {}, {})", value.x, value.y, value.z, value.w);)
 
-RAOE_CORE_DECLARE_FORMATTER(
-    flecs::entity, if(value.name().length() == 0) return format_to(ctx.out(), "flecs::entity(id: \'{}\')", value.id());
-    else return format_to(ctx.out(), "flecs::entity(id: \'{}\', name: \'{}\')", value.id(), value.name().c_str());)
+template<>
+struct std::formatter<flecs::entity>
+{
+    bool path = false;
+    template<typename ParseContext>
+    constexpr auto parse(ParseContext& ctx)
+    {
+        auto it = ctx.begin();
+        if(ctx.end() != it)
+        {
+            if(*it == 'p')
+            {
+                path = true;
+                ++it;
+            }
+        }
+
+        return it;
+    }
+    template<typename FormatContext>
+    auto format(const flecs::entity& value, FormatContext& ctx) const
+    {
+        if(path)
+        {
+            return format_to(ctx.out(), R"(flecs::entity(id: '{}', qualified_name: '{}'))", value.id(),
+                             value.path().c_str());
+        }
+
+        if(value.name().length() == 0)
+        {
+            return format_to(ctx.out(), R"(flecs::entity(id: '{}'))", value.id());
+        }
+        return format_to(ctx.out(), R"(flecs::entity(id: '{}', name: '{}'))", value.id(), value.name().c_str());
+    }
+};
