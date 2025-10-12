@@ -203,6 +203,7 @@ struct std::formatter<flecs::entity>
 {
     bool path = false;
     bool skip_name = false;
+    bool short_format = false;
     template<typename ParseContext>
     constexpr auto parse(ParseContext& ctx)
     {
@@ -217,6 +218,10 @@ struct std::formatter<flecs::entity>
             {
                 skip_name = true;
             }
+            else if(*it == 's')
+            {
+                short_format = true;
+            }
             ++it;
         }
 
@@ -227,15 +232,23 @@ struct std::formatter<flecs::entity>
     {
         auto out = ctx.out();
         out = format_to(out, "entity(");
-        out = format_to(out, "id: '{}'", value.id());
-        out = format_to(out, ", ");
-        if(path)
+        if(!short_format)
         {
-            out = format_to(out, R"(qualified_name: '{}')", value.path().c_str());
+            out = format_to(out, "id: '{}'", value.id());
+
+            out = format_to(out, ", ");
+            if(path)
+            {
+                out = format_to(out, R"(qualified_name: '{}')", value.path().c_str());
+            }
+            else if(value.name().length() != 0 && !skip_name)
+            {
+                out = format_to(out, R"(name: '{}')", value.name().c_str());
+            }
         }
-        else if(value.name().length() != 0 && !skip_name)
+        else
         {
-            out = format_to(out, R"(name: '{}')", value.name().c_str());
+            out = format_to(out, "{}", value.id());
         }
         out = format_to(out, ")");
         return out;
