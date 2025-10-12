@@ -699,6 +699,14 @@ namespace raoe::render::shader
 
     class material
     {
+      public:
+        material() = default;
+        material(const material&) = default;
+        material& operator=(const material&) = default;
+        material(material&&) = default;
+        material& operator=(material&&) = default;
+
+      private:
         using shader_uniform_variant =
             std::variant<std::monostate, generic_handle<texture>, glm::vec2, glm::vec3, glm::vec4, glm::u8vec4, uint8,
                          int8, uint16, int16, uint32, int32, float, double>;
@@ -746,7 +754,7 @@ namespace raoe::render::shader
             : m_shader(std::move(shader))
             , m_draw_pass(pass)
         {
-            check_if(m_shader != nullptr, "Material shader cannot be null");
+            check_if(m_shader.valid(), "Material shader cannot be null");
         }
 
         [[nodiscard]] generic_handle<shader>& shader_handle() { return m_shader; }
@@ -877,4 +885,4 @@ RAOE_CORE_DECLARE_FORMATTER(
                 default: format_to(ctx.out(), "build_flags::unknown"); break;
             }
         }
-    })
+    } return ctx.out();)

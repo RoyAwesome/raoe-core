@@ -364,7 +364,8 @@ namespace raoe::engine
            load_result.has_value())
         {
             world.component<T>();
-            into_entity.set<T>(std::move(load_result.value())).template set<asset_meta>(std::move(meta));
+            into_entity.set<T>(std::move(load_result.value()));
+            into_entity.set<asset_meta>(std::move(meta));
             auto handle = asset_handle<T>({into_entity});
             into_entity.set<weak_asset_handle<T>>({handle});
             return handle;

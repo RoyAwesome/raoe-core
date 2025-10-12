@@ -114,6 +114,15 @@ void raoe::render::draw_2d_texture_rect(const glm::vec2 rect_min, const glm::vec
         batch.push_rotation_rad(rotation, origin).add_quad(rect_min, rect_max, uv_min, uv_max, color).pop_transform();
     });
 }
+void raoe::render::draw_material_rect(const glm::vec2 rect_min, const glm::vec2 rect_max,
+                                      const generic_handle<shader::material>& material, const glm::vec2 uv_min,
+                                      const glm::vec2 uv_max, const glm::u8vec4& color, const float rotation,
+                                      const glm::vec2& origin)
+{
+    immediate_data.begin_batch(material, [&](render_batch& batch) {
+        batch.push_rotation_rad(rotation, origin).add_quad(rect_min, rect_max, uv_min, uv_max, color).pop_transform();
+    });
+}
 void raoe::render::draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect_max, const glm::u8vec4& color,
                                 const float rotation, const glm::vec2& origin)
 {

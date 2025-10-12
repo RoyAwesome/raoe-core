@@ -198,7 +198,7 @@ namespace raoe::engine::sys
     {
         world.component<window>();
 
-        world.system().kind(entities::startup::on_window_start).immediate().run(init_glfw);
+        world.system().kind(entities::startup::before_render_context_created).immediate().run(init_glfw);
         world.system().kind(flecs::PreFrame).run(poll_glfw_events);
         world.system<window>().kind(entities::render_tick::poll_window).run(handle_glfw_events);
         world.system<window>().kind(entities::render_tick::present).run(present_glfw_window);

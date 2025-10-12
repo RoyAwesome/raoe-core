@@ -35,6 +35,11 @@ namespace raoe::render
                               const glm::u8vec4& color = colors::white, float rotation = 0.0f,
                               const glm::vec2& origin = glm::vec2(0.0f, 0.0f));
 
+    void draw_material_rect(glm::vec2 rect_min, glm::vec2 rect_max, const generic_handle<shader::material>& material,
+                            glm::vec2 uv_min = glm::vec2(0.0f, 0.0f), glm::vec2 uv_max = glm::vec2(1.0f, 1.0f),
+                            const glm::u8vec4& color = colors::white, float rotation = 0.0f,
+                            const glm::vec2& origin = glm::vec2(0.0f, 0.0f));
+
     template<template<typename> typename TMaterialHandle>
     void draw_material_rect(glm::vec2 rect_min, glm::vec2 rect_max, const TMaterialHandle<shader::material>& material,
                             glm::vec2 uv_min = glm::vec2(0.0f, 0.0f), glm::vec2 uv_max = glm::vec2(1.0f, 1.0f),
@@ -43,11 +48,6 @@ namespace raoe::render
     {
         draw_material_rect(rect_min, rect_max, generic_handle(material), uv_min, uv_max, color, rotation, origin);
     }
-
-    void draw_material_rect(glm::vec2 rect_min, glm::vec2 rect_max, const generic_handle<shader::material>& material,
-                            glm::vec2 uv_min = glm::vec2(0.0f, 0.0f), glm::vec2 uv_max = glm::vec2(1.0f, 1.0f),
-                            const glm::u8vec4& color = colors::white, float rotation = 0.0f,
-                            const glm::vec2& origin = glm::vec2(0.0f, 0.0f));
 
     void draw_2d_rect(const glm::vec2& rect_min, const glm::vec2& rect_max, const glm::u8vec4& color = colors::white,
                       float rotation = 0.0f, const glm::vec2& origin = glm::vec2(0.0f, 0.0f));

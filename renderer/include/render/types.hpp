@@ -360,25 +360,44 @@ namespace raoe::render
         requires(THandle<T> a) {
             { a.get() } -> std::convertible_to<T*>;
             { std::hash<THandle<T>> {}(a) } -> std::convertible_to<std::size_t>;
+            !a;
+            // OPTIONAL (checked in the generic_handle constructor form this concept)
+            // { a.ready() } -> std::convertible_to<bool>;
         } && std::is_move_constructible_v<THandle<T>> && std::is_move_assignable_v<THandle<T>> &&
-        std::is_copy_assignable_v<THandle<T>> && std::is_copy_constructible_v<THandle<T>> &&
-        std::convertible_to<THandle<T>, bool>;
+        std::is_copy_assignable_v<THandle<T>> && std::is_copy_constructible_v<THandle<T>>;
 
     template<typename T>
     struct generic_handle
     {
+        template<typename U>
+        friend class generic_handle;
+
         struct vtable
         {
             T* (*get)(const std::any& handle);
             bool (*is_valid)(const std::any& handle);
+            bool (*ready)(const std::any& handle);
         };
         template<template<typename> class THandle>
+            requires asset_handle<THandle, T>
         generic_handle(const THandle<T>& handle)
             : m_handle(handle)
         {
             m_vtable = vtable {
                 .get = [](const std::any& h) -> T* { return std::any_cast<THandle<T>>(h).get(); },
                 .is_valid = [](const std::any& h) -> bool { return static_cast<bool>(std::any_cast<THandle<T>>(h)); },
+                .ready = [](const std::any& h) -> bool {
+                    if constexpr(requires(THandle<T> a) {
+                                     { a.ready() } -> std::convertible_to<bool>;
+                                 })
+                    {
+                        return (std::any_cast<THandle<T>>(h)).ready();
+                    }
+                    else
+                    {
+                        return static_cast<bool>(std::any_cast<THandle<T>>(h));
+                    }
+                },
             };
         }
 
@@ -387,12 +406,9 @@ namespace raoe::render
         generic_handle(const generic_handle<U>& handle)
             : m_handle(handle)
         {
-            m_vtable = vtable {
-                .get = [](const std::any& h) -> T* { return std::any_cast<generic_handle<U>>(h).get(); },
-                .is_valid = [](const std::any& h) -> bool {
-                    return static_cast<bool>(std::any_cast<generic_handle<U>>(h));
-                },
-            };
+            m_vtable = vtable {.get = [](const std::any& h) -> T* { return std::any_cast<generic_handle<U>>(h).get(); },
+                               .is_valid = handle.m_vtable.is_valid,
+                               .ready = handle.m_vtable.ready};
         }
 
         generic_handle()

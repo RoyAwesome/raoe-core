@@ -118,6 +118,7 @@ namespace raoe::engine
 
         enum class startup
         {
+            before_render_context_created,
             on_pre_init,
 
             on_window_start,

@@ -44,7 +44,8 @@ namespace raoe::engine
     {
         explicit engine_module(flecs::world& world)
         {
-            register_pipeline(world, flecs::OnStart, entities::startup::on_pre_init, entities::startup::on_game_start);
+            register_pipeline(world, flecs::OnStart, entities::startup::before_render_context_created,
+                              entities::startup::on_game_start);
             register_pipeline(world, flecs::OnUpdate, entities::render_tick::render_begin,
                               entities::render_tick::render_end);
 
