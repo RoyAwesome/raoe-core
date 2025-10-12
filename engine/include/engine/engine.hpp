@@ -202,17 +202,22 @@ template<>
 struct std::formatter<flecs::entity>
 {
     bool path = false;
+    bool skip_name = false;
     template<typename ParseContext>
     constexpr auto parse(ParseContext& ctx)
     {
         auto it = ctx.begin();
-        if(ctx.end() != it)
+        while(it != ctx.end() && *it != '}')
         {
             if(*it == 'p')
             {
                 path = true;
-                ++it;
             }
+            else if(*it == 'n')
+            {
+                skip_name = true;
+            }
+            ++it;
         }
 
         return it;
@@ -220,16 +225,19 @@ struct std::formatter<flecs::entity>
     template<typename FormatContext>
     auto format(const flecs::entity& value, FormatContext& ctx) const
     {
+        auto out = ctx.out();
+        out = format_to(out, "entity(");
+        out = format_to(out, "id: '{}'", value.id());
+        out = format_to(out, ", ");
         if(path)
         {
-            return format_to(ctx.out(), R"(flecs::entity(id: '{}', qualified_name: '{}'))", value.id(),
-                             value.path().c_str());
+            out = format_to(out, R"(qualified_name: '{}')", value.path().c_str());
         }
-
-        if(value.name().length() == 0)
+        else if(value.name().length() != 0 && !skip_name)
         {
-            return format_to(ctx.out(), R"(flecs::entity(id: '{}'))", value.id());
+            out = format_to(out, R"(name: '{}')", value.name().c_str());
         }
-        return format_to(ctx.out(), R"(flecs::entity(id: '{}', name: '{}'))", value.id(), value.name().c_str());
+        out = format_to(out, ")");
+        return out;
     }
 };
