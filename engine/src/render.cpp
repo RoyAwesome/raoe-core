@@ -275,7 +275,6 @@ raoe::engine::render_module::render_module(const flecs::world& world)
     world.system<render::render_transform, const transform_3d>()
         .kind(entities::render_tick::render_begin)
         .each(compute_render_transform_3d);
-
     world.system<render::render_transform, const transform_2d>()
         .kind(entities::render_tick::render_begin)
         .each(compute_render_transform_2d);

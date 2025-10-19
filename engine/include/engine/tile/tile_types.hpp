@@ -69,4 +69,179 @@ namespace raoe::engine::tile
         return {stride_of<Dims>()...};
     }
 
+    template<chunk_indexer... TChunkDims>
+    struct tile_point_base
+    {
+        using tile_point_t = std::array<int64, sizeof...(TChunkDims)>;
+        tile_point_base()
+            : m_data {}
+        {
+        }
+
+        template<std::integral... TIndices>
+        explicit tile_point_base(TIndices... indices)
+            : m_data {{static_cast<int64>(indices)...}}
+        {
+            static_assert(sizeof...(TIndices) == sizeof...(TChunkDims),
+                          "Number of indices must match number of dimensions");
+        }
+
+        tile_point_base(const tile_point_base& other) = default;
+        tile_point_base& operator=(const tile_point_base& other) = default;
+        tile_point_base(tile_point_base&& other) noexcept = default;
+        tile_point_base& operator=(tile_point_base&& other) noexcept = default;
+
+        bool operator==(const tile_point_base& other) const noexcept
+        {
+            for(size_t i = 0; i < sizeof...(TChunkDims); i++)
+            {
+                if(m_data[i] != other.m_data[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        tile_point_t m_data;
+    };
+
+    template<chunk_indexer... TChunkDims>
+    struct tile_position final : public tile_point_base<TChunkDims...>
+    {
+    };
+
+    template<chunk_indexer... TChunkDims>
+    struct chunk_position final : public tile_point_base<TChunkDims...>
+    {
+        using base = tile_point_base<TChunkDims...>;
+        chunk_position()
+            : base()
+        {
+        }
+
+        template<std::integral... TIndices>
+        explicit chunk_position(TIndices... indices)
+            : base(indices...)
+        {
+            static_assert(sizeof...(TIndices) == sizeof...(TChunkDims),
+                          "Number of indices must match number of dimensions");
+        }
+        explicit chunk_position(tile_position<TChunkDims...> point)
+            : base()
+        {
+            for(size_t i = 0; i < sizeof...(TChunkDims); i++)
+            {
+                base::m_data[i] = point.m_data[i] >= 0 ? point.m_data[i] / strides_array<TChunkDims...>()[i]
+                                                       : (point.m_data[i] - (strides_array<TChunkDims...>()[i] - 1)) /
+                                                             strides_array<TChunkDims...>()[i];
+            }
+        }
+
+        explicit chunk_position(const transform_3d& transform)
+            : base()
+        {
+            if constexpr(sizeof...(TChunkDims) >= 1)
+            {
+                base::m_data[0] = transform.position.x;
+            }
+            if constexpr(sizeof...(TChunkDims) >= 2)
+            {
+                base::m_data[1] = transform.position.y;
+            }
+            if constexpr(sizeof...(TChunkDims) >= 3)
+            {
+                base::m_data[1] = transform.position.z;
+            }
+            if constexpr(sizeof...(TChunkDims) >= 4)
+            {
+                for(int i = 2; i < sizeof...(TChunkDims); i++)
+                {
+                    base::m_data[i] = 0;
+                }
+            }
+        }
+
+        explicit chunk_position(const transform_2d& transform)
+            : base()
+        {
+            if constexpr(sizeof...(TChunkDims) >= 1)
+            {
+                base::m_data[0] = transform.position.x;
+            }
+            if constexpr(sizeof...(TChunkDims) >= 2)
+            {
+                base::m_data[1] = transform.position.y;
+            }
+            if constexpr(sizeof...(TChunkDims) >= 3)
+            {
+                for(int i = 2; i < sizeof...(TChunkDims); i++)
+                {
+                    base::m_data[i] = 0;
+                }
+            }
+        }
+
+        static chunk_position init_from_integral(std::integral auto ind)
+        {
+            chunk_position result;
+            result.m_data.fill(static_cast<int64>(ind));
+            return result;
+        }
+        chunk_position(const chunk_position& other) = default;
+        chunk_position& operator=(const chunk_position& other) = default;
+        chunk_position(chunk_position&& other) noexcept = default;
+        chunk_position& operator=(chunk_position&& other) noexcept = default;
+
+        chunk_position operator+(const chunk_position& other) const
+        {
+            chunk_position result = *this;
+            for(size_t i = 0; i < sizeof...(TChunkDims); i++)
+            {
+                result.m_data[i] += other.m_data[i];
+            }
+            return result;
+        }
+        chunk_position operator-(const chunk_position& other) const
+        {
+            chunk_position result = *this;
+            for(size_t i = 0; i < sizeof...(TChunkDims); i++)
+            {
+                result.m_data[i] -= other.m_data[i];
+            }
+            return result;
+        }
+
+        template<std::size_t N>
+        int64 get() const
+        {
+            static_assert(N < sizeof...(TChunkDims), "Index out of range");
+            return base::m_data[N];
+        }
+
+        tile_position<TChunkDims...> to_tile_position() const
+        {
+            tile_position pos;
+            for(size_t i = 0; i < sizeof...(TChunkDims); i++)
+            {
+                pos.m_data[i] = base::m_data[i] * strides_array<TChunkDims...>()[i];
+            }
+            return pos;
+        }
+    };
+
 }
+
+template<raoe::engine::tile::chunk_indexer... TChunkDims>
+struct std::hash<raoe::engine::tile::chunk_position<TChunkDims...>>
+{
+    std::size_t operator()(const raoe::engine::tile::chunk_position<TChunkDims...>& k) const
+    {
+        std::size_t h = 0;
+        for(size_t i = 0; i < sizeof...(TChunkDims); i++)
+        {
+            h = raoe::hash_combine(h, k.m_data[i]);
+        }
+        return h;
+    }
+};
