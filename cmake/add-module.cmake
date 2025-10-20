@@ -274,7 +274,7 @@ macro(raoe_add_test)
         message(FATAL_ERROR "This module must have a name")
     endif ()
 
-    CPMAddPackage("gh:catchorg/Catch2@3.3.2")
+    CPMAddPackage("gh:catchorg/Catch2@3.11.0")
 
     raoe_add_module(
             EXECUTABLE

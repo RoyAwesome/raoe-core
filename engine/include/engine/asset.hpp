@@ -280,7 +280,7 @@ namespace raoe::engine
     template<>
     struct asset_loader<std::string>
     {
-        static std::string load_asset(const asset_load_params& params)
+        static asset_load_result<std::string> load_asset(const asset_load_params& params)
         {
             std::string content((std::istreambuf_iterator(params.file_stream)), std::istreambuf_iterator<char>());
             return content;

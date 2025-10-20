@@ -85,10 +85,11 @@ TEST_CASE("Test loading strings", "[ENGINE][ASSET] ")
                    sys::pack_flags::system | sys::pack_flags::game);
     world.progress(); // Make sure the engine systems are initialized
 
-    auto handle = raoe::engine::load_asset<std::string>(world, raoe::fs::path("core.toml"));
+    const auto handle_result = raoe::engine::load_asset<std::string>(world, raoe::fs::path("core.toml"));
 
-    spdlog::info("Loaded asset {}", *handle);
-    REQUIRE(!!handle);
+    REQUIRE(handle_result.has_value());
 
-    REQUIRE(handle->size() > 0);
+    auto& handle = *handle_result;
+    REQUIRE(handle.valid());
+    REQUIRE(!handle->empty());
 }

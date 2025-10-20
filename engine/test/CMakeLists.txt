@@ -4,6 +4,7 @@ raoe_add_test(
         NAME engine
         CPP_SOURCE_FILES
         "test_assets.cpp"
+        "test_tile_shared.cpp"
         DEPENDENCIES
         raoe::engine
         PACK_DIRECTORY
