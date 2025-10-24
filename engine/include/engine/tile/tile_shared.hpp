@@ -156,7 +156,13 @@ namespace raoe::engine::tile
                 .m_chunk_prefab = world.prefab().set<chunk_storage>({}).template set<chunk_point>({}),
             });
 
-            world.system<map_observer, const transform_3d>().kind(flecs::PreUpdate).run(proces_tile_observation);
+            world.observer<const transform_3d, map_observer>()
+                .event(flecs::OnSet)
+                .event(flecs::OnAdd)
+                .yield_existing()
+                .run(proces_tile_observation);
+
+            // world.system<map_observer, const transform_3d>().kind(flecs::PreUpdate).run(proces_tile_observation);
         }
 
         template<uint64... TMapSizes>
@@ -232,8 +238,8 @@ namespace raoe::engine::tile
             while(it.next())
             {
                 flecs::entity observer_entity = it.entity(0);
-                const flecs::field<map_observer>& observer = it.field<map_observer>(0);
-                const auto& transform = it.field<const transform_3d>(1);
+                const auto& transform = it.field<const transform_3d>(0);
+                const flecs::field<map_observer>& observer = it.field<map_observer>(1);
 
                 flecs::ref<tile_map_t> map = observer->observed_map;
 
