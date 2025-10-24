@@ -26,6 +26,7 @@
 
 namespace raoe::engine::tile
 {
+
     template<chunk_indexer... TChunkDims>
     struct tile_map
     {
@@ -34,6 +35,11 @@ namespace raoe::engine::tile
         tile_map& operator=(const tile_map&) = default;
         tile_map(tile_map&&) noexcept = default;
         tile_map& operator=(tile_map&&) noexcept = default;
+
+        explicit tile_map(std::optional<tile_position<TChunkDims...>> max_size)
+            : m_max_size(max_size)
+        {
+        }
 
         using chunk_storage = tile_storage_chunk<flecs::entity, TChunkDims...>;
         using tile_point = tile_position<TChunkDims...>;
@@ -92,6 +98,7 @@ namespace raoe::engine::tile
                     point.m_data[i] = indices[i] - range;
                 }
                 // Call the provided function with the generated point
+                spdlog::info("Observing chunk {}", point.m_data);
                 func(point);
 
                 // Increment indices
@@ -131,72 +138,25 @@ namespace raoe::engine::tile
         using observed_by_tag = tile_map_t::observed_by;
         using observing_tag = tile_map_t::observing;
 
-        flecs::entity m_chunk_prefab;
+        struct tile_shared_data
+        {
+            flecs::entity m_chunk_prefab;
+        };
+
         // ReSharper disable once CppNonExplicitConvertingConstructor
         tile_shared_module(flecs::world& world)
         {
             world.component<tile_map_t>();
             world.component<chunk_storage>();
             world.component<map_observer>();
+            world.component<chunk_point>();
 
-            m_chunk_prefab = world.prefab().set<chunk_storage>({}).template set<chunk_point>({});
-
-            world.system<map_observer, const transform_3d>().kind(flecs::PreUpdate).run([](flecs::iter it) {
-                while(it.next())
-                {
-
-                    flecs::entity e = it.entity(0);
-                    const flecs::field<map_observer>& observer = it.field<map_observer>(1);
-                    const auto& transform = it.field<const transform_3d>(2);
-
-                    flecs::ref<tile_map_t> map = observer->observed_map;
-
-                    if(!map)
-                    {
-                        continue;
-                    }
-
-                    // When an observer is added, we need to find all chunks within range and add this observer to
-                    // them
-                    std::unordered_set<chunk_point> observed_chunks;
-                    chunk_point origin_chunk(*transform);
-                    map->for_each_chunk_in_range(observer->m_range, [&](const chunk_point& offset) {
-                        observed_chunks.emplace(offset + origin_chunk);
-                    });
-
-                    std::unordered_set<chunk_point> observed_difference;
-                    std::copy_if(
-                        observed_chunks.begin(), observed_chunks.end(),
-                        std::inserter(observed_difference, observed_difference.end()),
-                        [&](const chunk_point& point) { return !observer->m_currently_observing.contains(point); });
-
-                    e.children<observing_tag>([&](flecs::entity chunk_entity) {
-                        if(const chunk_point* point = chunk_entity.try_get<chunk_point>())
-                        {
-                            // If this chunk is being observed already, and it's part of the differences, remove it
-                            if(observed_difference.contains(*point))
-                            {
-                                map.entity().template enqueue<chunk_become_observed_event>(chunk_become_observed_event {
-                                    .observer = flecs::ref<map_observer> {e},
-                                    .position = *point,
-                                    .became_observed = false,
-                                });
-                                observed_difference.erase(*point);
-                            }
-                        }
-                    });
-
-                    // anything left over is new
-                    for(const auto& new_chunk_pos : observed_difference)
-                    {
-                        map.entity().template enqueue<chunk_become_observed_event>(chunk_become_observed_event {
-                            .observer = flecs::ref<map_observer> {e},
-                            .position = new_chunk_pos,
-                            .became_observed = true,
-                        });
-                    }
-                }
+            world.component<tile_shared_data>().add(flecs::Singleton);
+            world.set<tile_shared_data>(tile_shared_data {
+                .m_chunk_prefab = world.prefab().set<chunk_storage>({}).template set<chunk_point>({}),
             });
+
+            world.system<map_observer, const transform_3d>().kind(flecs::PreUpdate).run(proces_tile_observation);
         }
 
         template<uint64... TMapSizes>
@@ -209,11 +169,119 @@ namespace raoe::engine::tile
 
         static flecs::ref<tile_map_t> create_map(flecs::entity into_entity, std::optional<tile_point> max_size = {})
         {
-            into_entity.set<tile_map_t>(tile_map_t {
-                .m_max_size = max_size,
+            into_entity.set<tile_map_t>(tile_map(max_size));
+
+            into_entity.observe<chunk_become_observed_event>([into_entity](const chunk_become_observed_event& event) {
+                on_chunk_observed_event(into_entity, event);
             });
 
             return {into_entity};
+        }
+
+        static void on_chunk_observed_event(flecs::entity map_entity, const chunk_become_observed_event& event)
+        {
+            tile_map_t* map = map_entity.try_get_mut<tile_map_t>();
+            if(!map)
+            {
+                panic(
+                    "Cannot process chunk observed event on entity that is not a tile map.  Map is {}, observer is: {}",
+                    map_entity, event.observer.entity());
+            }
+            const tile_shared_data& module = map_entity.world().get<tile_shared_data>();
+
+            // do we have a chunk for this?
+            auto it = map->m_observed_chunks.find(event.position);
+            if(it == map->m_observed_chunks.end())
+            {
+                // If we're becoming observed, create the chunk
+                if(event.became_observed)
+                {
+                    flecs::entity chunk_entity = map_entity.world().entity().is_a(module.m_chunk_prefab);
+
+                    chunk_entity.set<chunk_point>(event.position);
+
+                    map->m_observed_chunks.emplace(event.position, flecs::ref<chunk_storage> {chunk_entity});
+                    event.observer.entity().template add_second<observing_tag>(chunk_entity);
+                    // TODO: Mark this chunk as needed to be generated.
+                }
+                else
+                {
+                    // We're being unobserved, but we don't have a chunk, so nothing to do
+                    return;
+                }
+            }
+            else
+            {
+                flecs::ref<chunk_storage>& chunk_ref = it->second;
+                // if we're becoming unobserved, and we have a chunk, we may need to remove it
+                if(!event.became_observed)
+                {
+                    // remove the observer from the chunk
+                    event.observer.entity().template remove_second<observing_tag>(chunk_ref.entity());
+                }
+                // If we're becoming observed, and we already have a chunk, add the observer
+                else
+                {
+                    event.observer.entity().template add_second<observing_tag>(chunk_ref.entity());
+                }
+            }
+        }
+
+        static void proces_tile_observation(flecs::iter it)
+        {
+            while(it.next())
+            {
+                flecs::entity observer_entity = it.entity(0);
+                const flecs::field<map_observer>& observer = it.field<map_observer>(0);
+                const auto& transform = it.field<const transform_3d>(1);
+
+                flecs::ref<tile_map_t> map = observer->observed_map;
+
+                if(!map)
+                {
+                    continue;
+                }
+
+                // When an observer is added, we need to find all chunks within range and add this observer to
+                // them
+                std::unordered_set<chunk_point> observed_chunks;
+                chunk_point origin_chunk(*transform);
+                map->for_each_chunk_in_range(observer->m_range, [&](const chunk_point& offset) {
+                    observed_chunks.emplace(offset + origin_chunk);
+                });
+
+                std::unordered_set<chunk_point> observed_difference;
+                std::copy_if(
+                    observed_chunks.begin(), observed_chunks.end(),
+                    std::inserter(observed_difference, observed_difference.end()),
+                    [&](const chunk_point& point) { return !observer->m_currently_observing.contains(point); });
+
+                observer_entity.each<observing_tag>([&](flecs::entity chunk_entity) {
+                    if(const chunk_point* point = chunk_entity.try_get<chunk_point>())
+                    {
+                        // If this chunk is being observed already, and it's part of the differences, remove it
+                        if(observed_difference.contains(*point))
+                        {
+                            map.entity().template enqueue<chunk_become_observed_event>(chunk_become_observed_event {
+                                .observer = flecs::ref<map_observer> {observer_entity},
+                                .position = *point,
+                                .became_observed = false,
+                            });
+                            observed_difference.erase(*point);
+                        }
+                    }
+                });
+
+                // anything left over is new
+                for(const auto& new_chunk_pos : observed_difference)
+                {
+                    map.entity().template enqueue<chunk_become_observed_event>(chunk_become_observed_event {
+                        .observer = flecs::ref<map_observer> {observer_entity},
+                        .position = new_chunk_pos,
+                        .became_observed = true,
+                    });
+                }
+            }
         }
     };
 

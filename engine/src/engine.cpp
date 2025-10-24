@@ -72,7 +72,7 @@ namespace raoe::engine
 
     void log_ecs(const int32 level, const char* file, const int32 line, const char* msg)
     {
-        spdlog::level::level_enum lvl = spdlog::level::trace;
+        spdlog::level::level_enum lvl = spdlog::level::info;
         if(level > 0)
         {
             lvl = spdlog::level::debug;
