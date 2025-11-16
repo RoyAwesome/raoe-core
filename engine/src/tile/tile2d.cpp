@@ -19,9 +19,4 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 
 namespace raoe::engine::tile
 {
-
-    tile_2d_module::tile_2d_module(flecs::world& world)
-        : tile_shared_module(world)
-    {
-    }
 }

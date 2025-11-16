@@ -22,12 +22,19 @@
 
 namespace raoe::engine::tile
 {
-    struct tile_3d_module : tile_shared_module<integral_dimension<32>, integral_dimension<32>, integral_dimension<32>>
+
+    template<typename T>
+        requires tile_map_settings<T, integral_dimension<32>, integral_dimension<32>, integral_dimension<32>>
+    struct tile_3d_module
+        : tile_shared_module<T, integral_dimension<32>, integral_dimension<32>, integral_dimension<32>>
     {
-        using Base = tile_shared_module;
+        using base_t = tile_shared_module<T, integral_dimension<32>, integral_dimension<32>, integral_dimension<32>>;
 
         // ReSharper disable once CppNonExplicitConvertingConstructor
-        tile_3d_module(flecs::world& world);
+        tile_3d_module(flecs::world& world)
+            : base_t(world)
+        {
+        }
     };
 
 }

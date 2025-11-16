@@ -27,23 +27,48 @@
 namespace raoe::engine::tile
 {
 
-    template<chunk_indexer... TChunkDims>
+    template<typename T, typename TInitializer>
+    concept tile_map_initializer = std::is_constructible_v<T, const TInitializer&, flecs::world&, int64>;
+
+    template<typename T, typename... TChunkDims>
+    concept tile_map_settings =
+        requires(T t, flecs::entity e, chunk_position<TChunkDims...> pos) {
+            // a parameter pack of chunk_indexer for indexable dimensions
+            // a function that meshes a chunk
+            t.mesh_chunk(e, pos);
+            // a function that generates terrain for a given area
+            t.generate_terrain(e, pos);
+        } && std::is_default_constructible_v<T> && std::is_constructible_v<T, flecs::world&, int64> &&
+        (chunk_indexer<TChunkDims> && ...);
+
+    template<typename TTileMapSettings, chunk_indexer... TChunkDims>
+        requires tile_map_settings<TTileMapSettings, TChunkDims...>
     struct tile_map
     {
+        using chunk_storage = tile_storage_chunk<flecs::entity, TChunkDims...>;
+        using tile_point = tile_position<TChunkDims...>;
+        using chunk_point = chunk_position<TChunkDims...>;
+
         tile_map() = default;
         tile_map(const tile_map&) = default;
         tile_map& operator=(const tile_map&) = default;
         tile_map(tile_map&&) noexcept = default;
         tile_map& operator=(tile_map&&) noexcept = default;
 
-        explicit tile_map(std::optional<tile_position<TChunkDims...>> max_size)
+        template<typename TTileMapInitializer>
+        explicit tile_map(std::optional<tile_point> max_size, const TTileMapInitializer& initializer,
+                          flecs::world& world, int64 seed)
+            requires tile_map_initializer<TTileMapSettings, TTileMapInitializer>
             : m_max_size(max_size)
+            , m_settings(initializer, world, seed)
         {
         }
 
-        using chunk_storage = tile_storage_chunk<flecs::entity, TChunkDims...>;
-        using tile_point = tile_position<TChunkDims...>;
-        using chunk_point = chunk_position<TChunkDims...>;
+        explicit tile_map(std::optional<tile_point> max_size, flecs::world& world, int64 seed)
+            : m_max_size(max_size)
+            , m_settings(world, seed)
+        {
+        }
 
         struct data_change_event
         {
@@ -124,12 +149,15 @@ namespace raoe::engine::tile
 
         // a struct that contains the observer information for a stored chunk
         std::unordered_map<chunk_point, flecs::ref<chunk_storage>> m_observed_chunks;
+
+        TTileMapSettings m_settings;
     };
 
-    template<chunk_indexer... TChunkDims>
+    template<typename TTileMapSettings, chunk_indexer... TChunkDims>
+        requires tile_map_settings<TTileMapSettings, TChunkDims...>
     struct tile_shared_module
     {
-        using tile_map_t = tile_map<TChunkDims...>;
+        using tile_map_t = tile_map<TTileMapSettings, TChunkDims...>;
         using chunk_storage = tile_map_t::chunk_storage;
         using map_observer = tile_map_t::map_observer;
         using chunk_point = tile_map_t::chunk_point;
@@ -137,6 +165,7 @@ namespace raoe::engine::tile
         using chunk_become_observed_event = tile_map_t::chunk_become_observed_event;
         using observed_by_tag = tile_map_t::observed_by;
         using observing_tag = tile_map_t::observing;
+        using tile_map_settings = TTileMapSettings;
 
         struct tile_shared_data
         {
@@ -173,9 +202,25 @@ namespace raoe::engine::tile
             return tile_point {sizes...};
         }
 
-        static flecs::ref<tile_map_t> create_map(flecs::entity into_entity, std::optional<tile_point> max_size = {})
+        template<typename TTileMapInitializer>
+            requires tile_map_initializer<TTileMapSettings, TTileMapInitializer>
+        static flecs::ref<tile_map_t> create_map(flecs::entity into_entity, const TTileMapInitializer& initializer,
+                                                 int64 seed, std::optional<tile_point> max_size = {})
         {
-            into_entity.set<tile_map_t>(tile_map(max_size));
+            into_entity.set<tile_map_t>(tile_map_t(max_size, initializer, into_entity.world(), seed));
+
+            into_entity.observe<chunk_become_observed_event>([into_entity](const chunk_become_observed_event& event) {
+                on_chunk_observed_event(into_entity, event);
+            });
+
+            return {into_entity};
+        }
+
+        static flecs::ref<tile_map_t> create_map(flecs::entity into_entity, int64 seed,
+                                                 std::optional<tile_point> max_size = {})
+        {
+            flecs::world w = into_entity.world();
+            into_entity.set<tile_map_t>(tile_map_t(max_size, w, seed));
 
             into_entity.observe<chunk_become_observed_event>([into_entity](const chunk_become_observed_event& event) {
                 on_chunk_observed_event(into_entity, event);

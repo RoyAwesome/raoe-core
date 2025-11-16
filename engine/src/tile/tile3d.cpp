@@ -18,9 +18,4 @@ Copyright 2022-2025 Roy Awesome's Open Engine (RAOE)
 #include "engine/tile/tile3d.hpp"
 namespace raoe::engine::tile
 {
-
-    tile_3d_module::tile_3d_module(flecs::world& world)
-        : tile_shared_module(world)
-    {
-    }
-}
+ }
