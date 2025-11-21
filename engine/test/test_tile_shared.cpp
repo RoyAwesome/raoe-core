@@ -23,10 +23,27 @@
 #include <catch2/catch_test_macros.hpp>
 #include <unordered_set>
 
+template<raoe::engine::tile::chunk_indexer... TChunkDims>
+struct test_tilemap_settings
+{
+    test_tilemap_settings() = default;
+    test_tilemap_settings(flecs::world& world, int64 seed) {}
+    // a parameter pack of chunk_indexer for indexable dimensions
+    // a function that meshes a chunk
+    void mesh_chunk(flecs::entity entity, raoe::engine::tile::chunk_position<TChunkDims...> position) {}
+    // a function that generates terrain for a given area
+    void generate_terrain(flecs::entity entity, raoe::engine::tile::chunk_position<TChunkDims...> position,
+                          raoe::engine::tile::chunk_position<TChunkDims...> range)
+    {
+    }
+};
+
 TEST_CASE("Test Iteration Set", "[ENGINE][TILE]")
 {
     // Generate a set of chunk positions in a range and verify correctness
-    using tile_map = raoe::engine::tile::tile_map<raoe::engine::tile::integral_dimension<32>,
+    using tm_settings =
+        test_tilemap_settings<raoe::engine::tile::integral_dimension<32>, raoe::engine::tile::integral_dimension<32>>;
+    using tile_map = raoe::engine::tile::tile_map<tm_settings, raoe::engine::tile::integral_dimension<32>,
                                                   raoe::engine::tile::integral_dimension<32>>;
     using chunk_point = tile_map::chunk_point;
 
@@ -48,7 +65,9 @@ TEST_CASE("Benchmarks", "[ENGINE][TILE]")
 {
     BENCHMARK("2d Iteration, 8 chunks observation range")
     {
-        using tile_map = raoe::engine::tile::tile_map<raoe::engine::tile::integral_dimension<32>,
+        using tm_settings = test_tilemap_settings<raoe::engine::tile::integral_dimension<32>,
+                                                  raoe::engine::tile::integral_dimension<32>>;
+        using tile_map = raoe::engine::tile::tile_map<tm_settings, raoe::engine::tile::integral_dimension<32>,
                                                       raoe::engine::tile::integral_dimension<32>>;
         using chunk_point = tile_map::chunk_point;
         tile_map::for_each_chunk_in_range(8, [&](const chunk_point&) {});
@@ -56,7 +75,10 @@ TEST_CASE("Benchmarks", "[ENGINE][TILE]")
 
     BENCHMARK("3d Iteration, 8 chunks observation range")
     {
-        using tile_map = raoe::engine::tile::tile_map<raoe::engine::tile::integral_dimension<32>,
+        using tm_settings = test_tilemap_settings<raoe::engine::tile::integral_dimension<32>,
+                                                  raoe::engine::tile::integral_dimension<32>,
+                                                  raoe::engine::tile::integral_dimension<32>>;
+        using tile_map = raoe::engine::tile::tile_map<tm_settings, raoe::engine::tile::integral_dimension<32>,
                                                       raoe::engine::tile::integral_dimension<32>,
                                                       raoe::engine::tile::integral_dimension<32>>;
         using chunk_point = tile_map::chunk_point;

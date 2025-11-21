@@ -21,6 +21,7 @@
 #include "engine/tile/tile_shared.hpp"
 #include "engine/tile/tile_storage.hpp"
 
+#include <queue>
 #include <set>
 #include <unordered_set>
 
@@ -32,13 +33,15 @@ namespace raoe::engine::tile
 
     template<typename T, typename... TChunkDims>
     concept tile_map_settings =
-        requires(T t, flecs::entity e, chunk_position<TChunkDims...> pos) {
+        requires(T t, flecs::entity map_entity, chunk_position<TChunkDims...> pos,
+                 chunk_position<TChunkDims...> range) {
             // a parameter pack of chunk_indexer for indexable dimensions
             // a function that meshes a chunk
-            t.mesh_chunk(e, pos);
+            t.mesh_chunk(map_entity, pos);
             // a function that generates terrain for a given area
-            t.generate_terrain(e, pos);
-        } && std::is_default_constructible_v<T> && std::is_constructible_v<T, flecs::world&, int64> &&
+            t.generate_terrain(map_entity, pos, range);
+        } &&
+        std::is_default_constructible_v<T> && std::is_constructible_v<T, flecs::world&, int64> &&
         (chunk_indexer<TChunkDims> && ...);
 
     template<typename TTileMapSettings, chunk_indexer... TChunkDims>
@@ -150,6 +153,9 @@ namespace raoe::engine::tile
         // a struct that contains the observer information for a stored chunk
         std::unordered_map<chunk_point, flecs::ref<chunk_storage>> m_observed_chunks;
 
+        std::queue<chunk_point> m_generation_queue;
+        std::queue<chunk_point> m_remeshing_queue;
+
         TTileMapSettings m_settings;
     };
 
@@ -172,6 +178,13 @@ namespace raoe::engine::tile
             flecs::entity m_chunk_prefab;
         };
 
+        struct tile_generation_queue_entry
+        {
+            chunk_point start_point = {};
+            chunk_point size = {};
+            flecs::ref<tile_map_t> tile_map = {};
+        };
+
         // ReSharper disable once CppNonExplicitConvertingConstructor
         tile_shared_module(flecs::world& world)
         {
@@ -190,6 +203,17 @@ namespace raoe::engine::tile
                 .event(flecs::OnAdd)
                 .yield_existing()
                 .run(proces_tile_observation);
+
+            world.system<const tile_generation_queue_entry>().kind(flecs::PreUpdate).run([](flecs::iter it) {
+                while(it.next())
+                {
+                    // generate some data for the map at the given chunk positions
+                    /*const tile_generation_queue_entry& task = it.field<const tile_generation_queue_entry>(0);
+                    if(const tile_map_t* map = task.tile_map.try_get())
+                    {
+                    }*/
+                }
+            });
 
             // world.system<map_observer, const transform_3d>().kind(flecs::PreUpdate).run(proces_tile_observation);
         }
