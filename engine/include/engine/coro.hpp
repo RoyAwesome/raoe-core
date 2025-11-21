@@ -69,9 +69,9 @@ namespace raoe::engine
                 };
             }
 
-            bool ready() const { return m_vtable.ready(m_waiter); }
-            bool run_inline() const { return m_vtable.run_inline(m_waiter); }
-            bool terminate() const { return m_vtable.terminate(m_waiter); }
+            [[nodiscard]] bool ready() const { return m_vtable.ready(m_waiter); }
+            [[nodiscard]] bool run_inline() const { return m_vtable.run_inline(m_waiter); }
+            [[nodiscard]] bool terminate() const { return m_vtable.terminate(m_waiter); }
 
             vtable m_vtable;
             std::any m_waiter;
@@ -93,8 +93,8 @@ namespace raoe::engine
 
             coro get_return_object() { return coro(handle_type::from_promise(*this)); }
 
-            std::suspend_never initial_suspend() noexcept { return {}; }
-            std::suspend_always final_suspend() noexcept { return {}; }
+            [[nodiscard]] std::suspend_never initial_suspend() const noexcept { return {}; }
+            [[nodiscard]] std::suspend_always final_suspend() const noexcept { return {}; }
 
             void unhandled_exception() noexcept
             {
@@ -108,7 +108,7 @@ namespace raoe::engine
                 return {};
             }
 
-            void return_void() {}
+            void return_void() const {}
         };
 
         handle_type handle;
@@ -128,11 +128,13 @@ namespace raoe::engine
         coro(const coro&) = delete;
         coro& operator=(const coro&) = delete;
         coro(coro&& other) noexcept
-            : handle(std::move(std::exchange(other.handle, {})))
-            , waiting_move(other.waiting_move) {};
+            : handle(std::exchange(other.handle, {}))
+            , waiting_move(other.waiting_move)
+        {
+        }
         coro& operator=(coro&& other) noexcept
         {
-            handle = std::move(std::exchange(other.handle, {}));
+            handle = std::exchange(other.handle, {});
             waiting_move = other.waiting_move;
             return *this;
         }
@@ -142,7 +144,7 @@ namespace raoe::engine
         void operator()() { try_move_next(); }
 
       private:
-        bool has_waiter() const { return handle.promise().result.index() != result_discriminator::empty; }
+        [[nodiscard]] bool has_waiter() const { return handle.promise().result.index() != result_discriminator::empty; }
 
         bool waiting_move = false;
         void try_move_next()
@@ -213,7 +215,7 @@ namespace raoe::engine
                 [[nodiscard]] bool ready() const
                 {
                     const auto time_point = std::chrono::high_resolution_clock::now();
-                    return (duration <= (time_point - start));
+                    return duration <= time_point - start;
                 }
                 [[nodiscard]] bool run_inline() const { return false; }
                 [[nodiscard]] bool terminate() const { return false; }
