@@ -164,11 +164,15 @@ namespace raoe::engine
         explicit operator bool() const { return handle && !handle.done(); }
 
         void operator()() const { try_move_next(); }
+
+        [[nodiscard]] debug_info_t debug_info() const
+        {
 #if RAOE_DEBUG
-        [[nodiscard]] debug_info_t debug_info() const { return handle.promise().m_debug_info; }
+            return handle.promise().m_debug_info;
 #else
-        [[nodiscard]] debug_info_t debug_info() const { return {}; }
+            return {};
 #endif
+        }
 
       private:
         [[nodiscard]] bool has_waiter() const { return handle.promise().result.index() != result_discriminator::empty; }
