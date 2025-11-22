@@ -34,7 +34,7 @@ coro test_sequence(const int32 n, int32& i)
     }
 }
 
-TEST_CASE("test basic sequencer", "[SEQUENCE]")
+TEST_CASE("test basic sequencer", "[CORO]")
 {
     int i = 0;
     const auto seq = test_sequence(10, i);
@@ -45,6 +45,14 @@ TEST_CASE("test basic sequencer", "[SEQUENCE]")
     }
 
     REQUIRE(i == 10);
+}
+
+TEST_CASE("test debug info", "[CORO]")
+{
+    int i = 0;
+    const auto seq = test_sequence(10, i);
+
+    spdlog::info("src_location {}", seq.debug_info().coro_location.function_name());
 }
 
 coro test_time(int& i)
@@ -62,7 +70,7 @@ coro test_time(int& i)
     }
 }
 
-TEST_CASE("test timed sequencer", "[SEQUENCE]")
+TEST_CASE("test timed sequencer", "[CORO]")
 {
     const auto start = std::chrono::high_resolution_clock::now();
     int counter = 0;

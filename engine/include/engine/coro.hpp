@@ -87,9 +87,33 @@ namespace raoe::engine
         struct promise_type;
         using handle_type = std::coroutine_handle<promise_type>;
 
+        struct debug_info_t
+        {
+            std::source_location coro_location;
+            std::source_location call_location;
+            std::string call_info;
+        };
+
         struct promise_type
         {
+            template<typename... params>
+            explicit promise_type(const params&... parms,
+                                  const std::source_location loc = std::source_location::current())
+            {
+#if RAOE_DEBUG
+                // TODO CPP26: rework this source_location to be a "current context" thing using cpp26, as to extract
+                //   where this has been called from, and also parses the incoming params and stores them
+                m_debug_info = debug_info_t {
+                    .coro_location = loc,
+                    .call_location = {},
+                    .call_info = {},
+                };
+#endif
+            }
             std::variant<std::monostate, waiter_storage, std::exception_ptr> result;
+#if RAOE_DEBUG
+            debug_info_t m_debug_info;
+#endif
 
             coro get_return_object() { return coro(handle_type::from_promise(*this)); }
 
@@ -140,6 +164,11 @@ namespace raoe::engine
         explicit operator bool() const { return handle && !handle.done(); }
 
         void operator()() const { try_move_next(); }
+#if RAOE_DEBUG
+        [[nodiscard]] debug_info_t debug_info() const { return handle.promise().m_debug_info; }
+#else
+        [[nodiscard]] debug_info_t debug_info() const { return {}; }
+#endif
 
       private:
         [[nodiscard]] bool has_waiter() const { return handle.promise().result.index() != result_discriminator::empty; }
