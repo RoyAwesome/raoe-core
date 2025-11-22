@@ -129,26 +129,24 @@ namespace raoe::engine
         coro& operator=(const coro&) = delete;
         coro(coro&& other) noexcept
             : handle(std::exchange(other.handle, {}))
-            , waiting_move(other.waiting_move)
         {
         }
         coro& operator=(coro&& other) noexcept
         {
             handle = std::exchange(other.handle, {});
-            waiting_move = other.waiting_move;
             return *this;
         }
 
         explicit operator bool() const { return handle && !handle.done(); }
 
-        void operator()() { try_move_next(); }
+        void operator()() const { try_move_next(); }
 
       private:
         [[nodiscard]] bool has_waiter() const { return handle.promise().result.index() != result_discriminator::empty; }
 
-        bool waiting_move = false;
-        void try_move_next()
+        void try_move_next() const
         {
+
             if(const waiter_storage* waiter = std::get_if<result_discriminator::data>(&handle.promise().result);
                waiter == nullptr || waiter->ready())
             {
@@ -175,17 +173,6 @@ namespace raoe::engine
                     }
 
                 } while(waiter->run_inline());
-            }
-
-            if(!waiting_move)
-            {
-                handle();
-                if(handle.promise().result.index() == result_discriminator::exception)
-                {
-                    std::rethrow_exception(
-                        std::get<result_discriminator::exception>(std::move(handle.promise().result)));
-                }
-                waiting_move = true;
             }
         }
     };

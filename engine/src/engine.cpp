@@ -51,6 +51,7 @@ namespace raoe::engine
 
             world.component<transform_2d>();
             world.component<transform_3d>();
+            world.component<coro>();
 
             if(!has_any_flags(world.get<engine_info_t>().flags, engine_flags::headless))
             {
@@ -67,6 +68,17 @@ namespace raoe::engine
                 .kind(entities::startup::on_pre_init)
                 .immediate()
                 .run(load_important_assets);
+
+            // Execute the coroutines every frame.
+            world.system<coro>().kind(flecs::PreFrame).run([](flecs::iter itr) {
+                while(itr.next())
+                {
+                    if(const coro& coroutine = *itr.field<const coro>(0); coroutine)
+                    {
+                        coroutine();
+                    }
+                }
+            });
         }
     };
 

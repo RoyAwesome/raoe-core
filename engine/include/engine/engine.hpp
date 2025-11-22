@@ -25,6 +25,8 @@
 
 #include "flecs.h"
 
+#include "engine/coro.hpp"
+
 namespace raoe::engine
 {
     enum class engine_flags : uint32

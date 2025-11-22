@@ -24,10 +24,10 @@
 
 using namespace raoe::engine;
 
-coro test_sequence(const int32 n)
+coro test_sequence(const int32 n, int32& i)
 {
     co_yield wait::for_next_tick();
-    for(int32 i = 0; i < n; i++)
+    for(i = 0; i < n; i++)
     {
         spdlog::info("i = {}", i);
         co_yield wait::for_next_tick();
@@ -36,25 +36,25 @@ coro test_sequence(const int32 n)
 
 TEST_CASE("test basic sequencer", "[SEQUENCE]")
 {
-    auto seq = test_sequence(10);
-
     int i = 0;
+    const auto seq = test_sequence(10, i);
+
     while(seq)
     {
         seq();
-        i++;
     }
 
     REQUIRE(i == 10);
 }
 
-coro test_time()
+coro test_time(int& i)
 {
     using namespace std::chrono_literals;
 
     const auto start = std::chrono::high_resolution_clock::now();
+    spdlog::info("Initial Wait For Duration");
     co_yield wait::for_duration(1s);
-    for(int i = 0; i < 10; i++)
+    for(i = 0; i < 10; i++)
     {
         auto duration = std::chrono::high_resolution_clock::now() - start;
         spdlog::info("i = {} time= {}", i, std::chrono::duration_cast<std::chrono::milliseconds>(duration));
@@ -64,9 +64,14 @@ coro test_time()
 
 TEST_CASE("test timed sequencer", "[SEQUENCE]")
 {
-    auto seq = test_time();
+    const auto start = std::chrono::high_resolution_clock::now();
+    int counter = 0;
+    const auto seq = test_time(counter);
     while(seq)
     {
         seq();
     }
+
+    REQUIRE(counter == 10);
+    REQUIRE(std::chrono::high_resolution_clock::now() - start >= std::chrono::seconds(10));
 }
