@@ -132,11 +132,16 @@ namespace raoe::engine
             {
                 if constexpr(THandleType == asset_handle_type::strong)
                 {
-                    if(--ref->hard_ref_count <= 0)
+                    // If we decrement the hard ref, check to see if we should destruct the entity
+                    //  We check ahead of time here because if the entity holds a weak ref, then it will decrement
+                    //  before we finish cleaning up, deleting the ref block so leave the hard ref until destruction of
+                    //  the child fully completes, then clean up the ref block (maybe).
+                    if(ref->hard_ref_count - 1 <= 0)
                     {
                         asset->entity().destruct();
                         delete asset;
                     }
+                    --ref->hard_ref_count;
                 }
                 if constexpr(THandleType == asset_handle_type::weak)
                 {
@@ -146,6 +151,7 @@ namespace raoe::engine
                 if(ref->weak_ref_count <= 0 && ref->hard_ref_count <= 0)
                 {
                     delete ref;
+                    ref = nullptr;
                 }
             }
         }

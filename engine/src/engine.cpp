@@ -73,9 +73,9 @@ namespace raoe::engine
             world.system<coro>().kind(flecs::PreFrame).run([](flecs::iter itr) {
                 while(itr.next())
                 {
-                    if(const coro& coroutine = *itr.field<const coro>(0); coroutine)
+                    if(auto coroutine = itr.field<coro>(0); *coroutine)
                     {
-                        coroutine();
+                        (*coroutine)();
                     }
                 }
             });

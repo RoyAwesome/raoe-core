@@ -370,7 +370,7 @@ namespace raoe::render
     struct generic_handle
     {
         template<typename U>
-        friend class generic_handle;
+        friend struct generic_handle;
 
         struct vtable
         {

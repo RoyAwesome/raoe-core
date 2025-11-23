@@ -21,6 +21,7 @@
 #include <exception>
 #include <variant>
 
+#include "core/rc.hpp"
 #include "core/types.hpp"
 
 #include <chrono>
@@ -35,8 +36,11 @@ namespace raoe::engine
         { t.terminate() } -> std::convertible_to<bool>;
     };
 
-    struct coro
+    struct coro final : rc<rc_strength::strong>
     {
+        using rc = rc<rc_strength::strong>;
+        friend class coro_handle;
+
       private:
         struct waiter_storage
         {
@@ -135,10 +139,9 @@ namespace raoe::engine
             void return_void() const {}
         };
 
-        handle_type handle;
-
         explicit coro(const handle_type in_handle)
-            : handle(in_handle)
+            : rc(rc_init_refcount_tag {})
+            , handle(in_handle)
         {
         }
         ~coro()
@@ -152,18 +155,22 @@ namespace raoe::engine
         coro(const coro&) = delete;
         coro& operator=(const coro&) = delete;
         coro(coro&& other) noexcept
-            : handle(std::exchange(other.handle, {}))
+            : rc(other)
+            , handle(std::exchange(other.handle, {}))
         {
         }
         coro& operator=(coro&& other) noexcept
         {
+            rc::operator=(std::forward<rc>(other));
             handle = std::exchange(other.handle, {});
             return *this;
         }
 
         explicit operator bool() const { return handle && !handle.done(); }
 
-        void operator()() const { try_move_next(); }
+        // ReSharper disable once CppMemberFunctionMayBeConst
+        // Non const because const version of this coro shouldn't be able to execute.
+        void operator()() { try_move_next(); }
 
         [[nodiscard]] debug_info_t debug_info() const
         {
@@ -208,6 +215,8 @@ namespace raoe::engine
                 } while(waiter->run_inline());
             }
         }
+
+        handle_type handle;
     };
 
     namespace wait
@@ -247,4 +256,36 @@ namespace raoe::engine
             return waiter(duration);
         }
     }
+
+    class coro_handle final : rc<rc_strength::weak>
+    {
+        using rc = rc<rc_strength::weak>;
+
+      public:
+        coro_handle() = default;
+        explicit coro_handle(const coro& coro)
+            : rc(coro)
+            , m_coro(&coro)
+        {
+        }
+
+        coro_handle(coro_handle&& other) noexcept = default;
+        coro_handle& operator=(coro_handle&& other) noexcept = default;
+        coro_handle(const coro_handle&) = default;
+        coro_handle& operator=(const coro_handle&) = default;
+
+        [[nodiscard]] explicit operator bool() const { return has_strong_ref(); }
+
+        const coro* try_get() const
+        {
+            if(has_strong_ref() && m_coro)
+            {
+                return m_coro;
+            }
+            return nullptr;
+        }
+
+      private:
+        const coro* m_coro = nullptr;
+    };
 }

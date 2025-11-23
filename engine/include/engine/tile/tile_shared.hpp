@@ -126,7 +126,6 @@ namespace raoe::engine::tile
                     point.m_data[i] = indices[i] - range;
                 }
                 // Call the provided function with the generated point
-                spdlog::info("Observing chunk {}", point.m_data);
                 func(point);
 
                 // Increment indices

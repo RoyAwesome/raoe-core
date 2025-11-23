@@ -42,6 +42,7 @@ raoe_add_module(
         tomlplusplus::tomlplusplus
         stb_image
         SKIP_TESTS
+        ENABLE_ASAN
 )
 
 raoe_add_asset_pack(
