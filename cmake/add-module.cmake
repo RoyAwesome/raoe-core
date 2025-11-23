@@ -24,7 +24,7 @@ function(raoe_recursively_get_dependencies targets out_var)
 endfunction()
 
 macro(raoe_add_module)
-    set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE SKIP_TESTS)
+    set(options STATIC SHARED MODULE HEADERONLY EXECUTABLE SKIP_TESTS ENABLE_ASAN)
     set(oneValueArgs NAME NAMESPACE CXX_STANDARD TARGET_VARIABLE PACK_DIRECTORY)
     set(multiValueArgs CPP_SOURCE_FILES INCLUDE_DIRECTORIES COMPILE_DEFINITIONS DEPENDENCIES SYMLINK_IN_DEV)
 
@@ -104,6 +104,11 @@ macro(raoe_add_module)
                 ${raoe_add_module_DEPENDENCIES}
         )
         set_target_properties(${PROJECT_NAME} PROPERTIES PACK_INFO "")
+
+        if (NOT raoe_add_module_HEADERONLY AND raoe_add_module_ENABLE_ASAN)
+            target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize=address)
+            target_link_options(${PROJECT_NAME} PUBLIC -fsanitize=address)
+        endif ()
     endmacro()
 
     if (raoe_add_module_HEADERONLY)
