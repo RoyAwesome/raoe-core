@@ -135,6 +135,17 @@ namespace raoe::engine
                 return {};
             }
 
+            std::suspend_always yield_value(std::suspend_always)
+            {
+                struct waiter
+                {
+                    [[nodiscard]] bool ready() const { return true; }
+                    [[nodiscard]] bool run_inline() const { return false; }
+                    [[nodiscard]] bool terminate() const { return false; }
+                };
+                return yield_value(waiter {});
+            }
+
             void return_void() const {}
         };
 

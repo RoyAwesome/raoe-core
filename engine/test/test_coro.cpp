@@ -21,6 +21,8 @@
 #include <catch2/matchers/catch_matchers_all.hpp>
 
 #include "engine/coro.hpp"
+#include "engine/engine.hpp"
+#include "flecs/addons/cpp/world.hpp"
 
 using namespace raoe::engine;
 
@@ -82,4 +84,28 @@ TEST_CASE("test timed sequencer", "[CORO]")
 
     REQUIRE(counter == 10);
     REQUIRE(std::chrono::high_resolution_clock::now() - start >= std::chrono::seconds(10));
+}
+
+coro test_engine_coro(int& i)
+{
+    for(i = 0; i < 10; i++)
+    {
+        co_yield wait::for_next_tick();
+    }
+}
+
+TEST_CASE("Test engine progress", "[CORO]")
+{
+    const char* argv[1] {"asdf"};
+    flecs::world world = init_engine(1, const_cast<char**>(argv), "Raoe Game", "Raoe", engine_flags::none);
+
+    int z = 0;
+    start_coro(world, test_engine_coro(z));
+    for(int i = 0; i < 10; i++)
+    {
+        world.progress();
+    }
+    world.progress(); // make sure the coro is dead
+    REQUIRE(z == 10);
+    REQUIRE(world.count<coro>() == 0);
 }

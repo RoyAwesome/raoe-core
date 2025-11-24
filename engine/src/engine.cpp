@@ -54,7 +54,7 @@ namespace raoe::engine
             world.component<transform_3d>();
             world.component<coro>();
 
-            if(!has_any_flags(world.get<engine_info_t>().flags, engine_flags::headless))
+            if(has_any_flags(world.get<engine_info_t>().flags, engine_flags::rendering))
             {
                 world.import <sys::window_module>();
                 world.import <render_module>();
@@ -129,7 +129,7 @@ namespace raoe::engine
     }
 
     flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name,
-                             engine_flags flags)
+                             const engine_flags flags)
     {
         check_if(argv != nullptr, "argv must be your program's argv");
         _command_line_args = std::vector<std::string_view>(argv, argv + argc);

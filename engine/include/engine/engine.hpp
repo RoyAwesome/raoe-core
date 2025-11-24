@@ -32,8 +32,24 @@ namespace raoe::engine
     enum class engine_flags : uint32
     {
         none = 0,
-        headless = 1 << 0,  // Run without a window (no rendering)
-        test_mode = 1 << 1, // Run in test mode (for unit tests, causing offline rendering)
+        rendering = 1 << 0,
+        networking = 1 << 1,
+
+        software_rendering = 1 << 2, // software rendering mode, useful for testing.
+
+        server = 1 << 3,
+        client = 1 << 4,
+
+        headless = networking,             // Run without a window (no rendering)
+        test_client = networking | client, // testing without rendering
+        test_server = networking | server, // testing server stack
+        render_testing = rendering | software_rendering,
+
+        single_player = rendering,
+        game = rendering | networking | client |
+               server, // standard game config.  All features enabled, and can host servers locally
+        client_only = rendering | networking | client, // client only, with no server ability
+        dedicated_server = networking | server,        // dedicated server.  No rendering facilities
     };
     struct engine_info_t
     {
@@ -87,7 +103,7 @@ namespace raoe::engine
 
     // Initializes the engine's ECS world and returns a handle to it.
     [[nodiscard]] flecs::world init_engine(int argc, char* argv[], std::string app_name, const std::string& org_name,
-                                           engine_flags flags = engine_flags::none);
+                                           engine_flags flags = engine_flags::game);
 
     // Shuts down the engine's ECS world and cleans up resources.
     void shutdown_engine() noexcept;
