@@ -42,6 +42,7 @@ namespace raoe::engine
 
     struct engine_module
     {
+        flecs::entity coro_prefab;
         explicit engine_module(flecs::world& world)
         {
             register_pipeline(world, flecs::OnStart, entities::startup::before_render_context_created,
@@ -69,13 +70,24 @@ namespace raoe::engine
                 .immediate()
                 .run(load_important_assets);
 
+            coro_prefab = world.prefab("coro").auto_override<std::shared_ptr<coro>>();
+
             // Execute the coroutines every frame.
-            world.system<coro>().kind(flecs::PreFrame).run([](flecs::iter itr) {
+            world.system<std::shared_ptr<coro>>().kind(flecs::PreFrame).run([](flecs::iter itr) {
                 while(itr.next())
                 {
-                    if(auto coroutine = itr.field<coro>(0); *coroutine)
+                    auto entity = itr.entity(0);
+                    auto coroutine = itr.field<std::shared_ptr<coro>>(0);
+                    if(std::shared_ptr<coro>& coro = *coroutine; coro && *coro)
                     {
-                        (*coroutine)();
+                        (*coro)();
+
+                        if(!coro->valid())
+                        {
+                            spdlog::trace("Coro Executor: destructing coro {} because it's done",
+                                          coro->debug_info().coro_location.function_name());
+                            entity.destruct();
+                        }
                     }
                 }
             });
@@ -160,6 +172,17 @@ namespace raoe::engine
         _world.reset();
     }
 
+    std::weak_ptr<const coro> start_coro(flecs::world& world, coro&& coroutine, std::source_location start_location)
+    {
+        auto c = std::make_shared<coro>(std::forward<coro>(coroutine));
+        c->set_call_location(start_location);
+
+        const auto& engine = world.get<engine_module>();
+        world.entity().is_a(engine.coro_prefab).set<std::shared_ptr<coro>>(c);
+        spdlog::trace("start_coro: Starting Coro {} called from {}", c->debug_info().coro_location.function_name(),
+                      c->debug_info().call_location.function_name());
+        return c;
+    }
     const engine_info_t& engine_info() noexcept
     {
         return _world->get<engine_info_t>();

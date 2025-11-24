@@ -95,6 +95,9 @@ namespace raoe::engine
     // Returns the command line arguments passed to the engine.
     std::span<std::string_view> command_line_args();
 
+    std::weak_ptr<const coro> start_coro(flecs::world& world, coro&& coroutine,
+                                         std::source_location start_location = std::source_location::current());
+
     const engine_info_t& engine_info() noexcept;
 
     template<typename T>
